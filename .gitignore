@@ -13,7 +13,7 @@ tools/bcdb_mock/allocations.json
 tools/bcdb_mock/farms.json
 tools/bcdb_mock/nodes.json
 tools/bcdb_mock/reservations.json
-
+docs/kubernetes/ressources/ha/docker/data
 qemu/node*
 qemu/*.efi
 .ssh
