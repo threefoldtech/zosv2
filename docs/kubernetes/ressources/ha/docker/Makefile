@@ -27,7 +27,7 @@ start-ha-m1: ## start the HAProxy and keepalived services on master node 1
 ##@ print
 .PHONY: print
 print: ## print kubernetes IP
-	sed -i "s/127.0.0.1/$(KUBE_MASTER_VIP)/" kubeconfig.yaml
+	sed -i "s/127.0.0.1:6443/$(KUBE_MASTER_VIP):8443/" kubeconfig.yaml
 	echo "Created a Kubernetes:"
 	echo "- Control Plane Endpoint: $(KUBE_MASTER_VIP)"
 	echo "- Master IP 01: $(KUBE_MASTER_IP_01)"
@@ -58,19 +58,21 @@ base-build: ## Build the docker base image
 .PHONY: up-m1 
 up-m1:  ## Launch the docker-compose up command for master1
 	docker-compose up -d $(KUBE_MASTER_NAME_01)
-	sleep 2
+	sleep 5
 
 ##@ up-m2
 .PHONY: up-m2 
 up-m2:  ## Launch the docker-compose up command for master2
+	sleep 5
 	docker-compose up -d $(KUBE_MASTER_NAME_02)
-	sleep 2
+
 
 ##@ up-m3 
 .PHONY: up-m3 
 up-m3:  ## Launch the docker-compose up command for master3
-	docker-compose up -d $(KUBE_MASTER_NAME_03)
 	sleep 2
+	docker-compose up -d $(KUBE_MASTER_NAME_03)
+
 
 ##@ up-agent  
 .PHONY: up-agent  

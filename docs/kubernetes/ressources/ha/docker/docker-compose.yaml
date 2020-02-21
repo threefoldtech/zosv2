@@ -28,7 +28,7 @@ services:
     container_name: master2
     build: .
     entrypoint: /usr/local/bin/k3s
-    command: server --server https://192.168.168.100:6443
+    command: server --server https://192.168.168.100:8443
     tmpfs:
       - /run
       - /var/run
@@ -48,7 +48,7 @@ services:
     container_name: master3
     build: .
     entrypoint: /usr/local/bin/k3s
-    command: server --server https://192.168.168.100:6443
+    command: server --server https://192.168.168.100:8443
     tmpfs:
       - /run
       - /var/run
