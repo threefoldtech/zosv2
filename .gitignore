@@ -14,6 +14,7 @@ tools/bcdb_mock/farms.json
 tools/bcdb_mock/nodes.json
 tools/bcdb_mock/reservations.json
 docs/kubernetes/ressources/ha/docker/data
+docs/kubernetes/ressources/ha/docker/kubeconfig.yaml
 qemu/node*
 qemu/*.efi
 .ssh

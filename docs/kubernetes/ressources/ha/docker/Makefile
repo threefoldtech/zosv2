@@ -58,16 +58,19 @@ base-build: ## Build the docker base image
 .PHONY: up-m1 
 up-m1:  ## Launch the docker-compose up command for master1
 	docker-compose up -d $(KUBE_MASTER_NAME_01)
+	sleep 2
 
 ##@ up-m2
 .PHONY: up-m2 
 up-m2:  ## Launch the docker-compose up command for master2
 	docker-compose up -d $(KUBE_MASTER_NAME_02)
+	sleep 2
 
 ##@ up-m3 
 .PHONY: up-m3 
 up-m3:  ## Launch the docker-compose up command for master3
 	docker-compose up -d $(KUBE_MASTER_NAME_03)
+	sleep 2
 
 ##@ up-agent  
 .PHONY: up-agent  
