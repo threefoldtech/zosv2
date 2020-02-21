@@ -231,3 +231,36 @@ Run K3s with --flannel-backend=none
 ## HA :warning: (WIP) :construction_worker:
 
 ![k3s ha architecture](ressources/ha/k3s-ha-architecture.svg)
+
+To achieve high availability for our cluster we need two things
+
+- a distributed database for the api server to store all the cluster related informations
+- load balanced master nodes to make sure a master node is always available
+
+### High Availability with Embedded DB
+
+Instead of using an external database we can use an internal Dqlite database.
+DQLite is short for “distributed SQLite.” According to https://dqlite.io, it is “a fast, embedded, persistent SQL database with Raft consensus that is perfect for fault-tolerant IoT and Edge devices.”
+![DQLite ha architecture](ressources/ha/ha_with_dqlite.png)
+To run K3s in this mode, you must have an odd number of server nodes. We recommend starting with three nodes.
+
+To get started, first launch a server node with the cluster-init flag to enable clustering and a token that will be used as a shared secret to join additional servers to the cluster.
+
+```
+K3S_TOKEN=SECRET k3s server --cluster-init
+```
+
+After launching the first server, join the second and third servers to the cluster using the shared secret:
+
+```
+K3S_TOKEN=SECRET k3s server --server https://<ip or hostname of server1>:6443
+```
+
+Now you have a highly available control plane
+
+### Master Node Pool
+
+![DQLite ha architecture](ressources/ha/k3s-production-setup.svg)
+We will use haproxy and keepalived to create a pool of master nodes and get a fixed registration address.
+
+KUBE_MASTER_VIP - Floating virtual IP (VIP) to use in keepalived. (default: 192.168.1.100)

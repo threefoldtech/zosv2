@@ -2,8 +2,10 @@
 
 version: "3.7"
 services:
-  server1:
-    image: "rancher/k3s:${K3S_VERSION:-latest}"
+  master1:
+    container_name: master1
+    build: .
+    entrypoint: /usr/local/bin/k3s
     command: server --cluster-init
     tmpfs:
       - /run
@@ -14,17 +16,19 @@ services:
       - K3S_KUBECONFIG_OUTPUT=/output/kubeconfig.yaml
       - K3S_KUBECONFIG_MODE=666
     volumes:
-      - k3s-server:/var/lib/rancher/k3s
       # This is just so that we get the kubeconfig file out
       - .:/output
     ports:
       - 6443:6443
     networks:
-      - k3s-net
+      k3s-net:
+        ipv4_address: 192.168.168.101
 
-  server2:
-    image: "rancher/k3s:${K3S_VERSION:-latest}"
-    command: server --server https://server1:6443
+  master2:
+    container_name: master2
+    build: .
+    entrypoint: /usr/local/bin/k3s
+    command: server --server https://192.168.168.100:6443
     tmpfs:
       - /run
       - /var/run
@@ -33,21 +37,18 @@ services:
       - K3S_TOKEN=230792876520407
       - K3S_KUBECONFIG_OUTPUT=/output/kubeconfig.yaml
       - K3S_KUBECONFIG_MODE=666
+      - NODE_IP=192.168.168.102
     depends_on:
-      - server1
+      - master1
     networks:
-      - k3s-net
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 650M
-        reservations:
-          cpus: "0.25"
-          memory: 100M
-  server3:
-    image: "rancher/k3s:${K3S_VERSION:-latest}"
-    command: server --server https://server1:6443
+      k3s-net:
+        ipv4_address: 192.168.168.102
+
+  master3:
+    container_name: master3
+    build: .
+    entrypoint: /usr/local/bin/k3s
+    command: server --server https://192.168.168.100:6443
     tmpfs:
       - /run
       - /var/run
@@ -56,84 +57,32 @@ services:
       - K3S_TOKEN=230792876520407
       - K3S_KUBECONFIG_OUTPUT=/output/kubeconfig.yaml
       - K3S_KUBECONFIG_MODE=666
+      - NODE_IP=192.168.168.103
     depends_on:
-      - server2
+      - master1
     networks:
-      - k3s-net
-    deploy:
-      resources:
-        limits:
-          cpus: "1.50"
-          memory: 500M
-        reservations:
-          cpus: "1"
-          memory: 200M
+      k3s-net:
+        ipv4_address: 192.168.168.103
 
   agent:
-    image: "rancher/k3s:${K3S_VERSION:-latest}"
+    container_name: agent
+    build:
+      context: .
+      dockerfile: Dockerfile-agent
+    entrypoint: /usr/local/bin/k3s
+    command: agent
     tmpfs:
       - /run
       - /var/run
     privileged: true
     environment:
-      - K3S_URL=https://server1:6443
+      - K3S_URL=https://192.168.168.100:6443
       - K3S_TOKEN=230792876520407
     depends_on:
-      - server3
+      - master3
     networks:
-      - k3s-net
-    deploy:
-      resources:
-        limits:
-          cpus: "2.50"
-          memory: 550M
-        reservations:
-          cpus: "2"
-          memory: 300M
-
-  agent2:
-    image: "rancher/k3s:${K3S_VERSION:-latest}"
-    tmpfs:
-      - /run
-      - /var/run
-    privileged: true
-    environment:
-      - K3S_URL=https://server1:6443
-      - K3S_TOKEN=230792876520407
-    depends_on:
-      - server3
-    networks:
-      - k3s-net
-    deploy:
-      resources:
-        limits:
-          cpus: "3.50"
-          memory: 450M
-        reservations:
-          cpus: "2"
-          memory: 200M
-
-  agent3:
-    image: "rancher/k3s:${K3S_VERSION:-latest}"
-    tmpfs:
-      - /run
-      - /var/run
-    privileged: true
-    environment:
-      - K3S_URL=https://192.168.168.168:543
-      - K3S_TOKEN=230792876520407
-    depends_on:
-      - server3
-    networks:
-      - k3s-net
-    deploy:
-      resources:
-        limits:
-          cpus: "0.75"
-          memory: 750M
-        reservations:
-          cpus: "0.5"
-          memory: 600M
+      k3s-net:
+        ipv4_address: 192.168.168.114
 
 networks:
   k3s-net:
@@ -141,11 +90,3 @@ networks:
     ipam:
       config:
         - subnet: 192.168.168.0/24
-
-volumes:
-  k3s-server:
-    driver: local
-    driver_opts:
-      type: "none"
-      o: "bind"
-      device: "${PWD}/data"
