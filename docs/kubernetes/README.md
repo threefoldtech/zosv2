@@ -37,14 +37,13 @@ Our CLI tool tfuser makes it easy to interact with the TFGrid and provision a ku
 
 ## Tfuser Install
 
-Tfuser is a developer oriented tool used to interact with node on devnet. Let's clone the repository and build the binary.  Please make sure you are using a version of go(lang) that is 1.12 or higher.  Some linux distributions still have 1.10 installed as the default version.
+Tfuser is a developer oriented tool used to interact with node on devnet. Let's clone the repository and build the binary. Please make sure you are using a version of go(lang) that is 1.12 or higher. Some linux distributions still have 1.10 installed as the default version.
 
 ```
 $ git clone https://github.com/threefoldtech/zos
 $ cd tools
 $ make tfuser
 cd tfuser && go build -ldflags '-w -s -X github.com/threefoldtech/zos/pkg/version.Branch=fcvm -X github.com/threefoldtech/zos/pkg/version.Revision=c00740b8fbb75746cd02fb5614ccf57342b7a9f4 -X github.com/threefoldtech/zos/pkg/version.Dirty='
-$ cd tfuser
 $ ./tfuser --help
 ```
 
