@@ -3,18 +3,98 @@ package primitives
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"os/exec"
-	"strings"
+	"os"
+	"syscall"
 
 	"github.com/rs/zerolog/log"
+	"github.com/threefoldtech/zos/pkg"
 	"github.com/threefoldtech/zos/pkg/provision"
 	"github.com/threefoldtech/zos/pkg/stubs"
-	"github.com/threefoldtech/zos/pkg/zinit"
 
 	"github.com/pkg/errors"
 )
 
+type DebugInfo struct {
+	Sysdiag bool `json:"sysdiag"`
+}
+
+type DebugResult struct {
+	ResultFile string `json:"result"`
+}
+
+func (p *Provisioner) debugSysdiag() (DebugResult, error) {
+	log.Debug().Msg("preparing sysdiag request")
+
+	fl := "https://hub.grid.tf/maxux42.3bot/sysdiag.flist"
+	st := "zdb://hub.grid.tf:9900"
+
+	flistClient := stubs.NewFlisterStub(p.zbus)
+
+	log.Debug().Str("flist", fl).Msg("sysdiag flist")
+	var mnt string
+
+	mnt, err := flistClient.Mount(fl, st, pkg.DefaultMountOptions)
+	if err != nil {
+		return DebugResult{}, err
+	}
+
+	defer func() {
+		log.Debug().Msg("cleaning sysdiag flist")
+
+		if err := flistClient.Umount(mnt); err != nil {
+			log.Error().Err(err).Str("mnt", mnt).Msg("failed to unmount sysdiag root")
+		}
+	}()
+
+	log.Info().Str("rootfs", mnt).Msg("initializing sysdiag environment")
+
+	env := os.Environ()
+	args := []string{"sh", mnt + "/sysdiag.sh"}
+
+	execErr := syscall.Exec("/bin/sh", args, env)
+	if execErr != nil {
+		return DebugResult{}, errors.Wrap(err, "error executing sysdiag")
+	}
+
+	rslt := DebugResult{
+		ResultFile: "unknown for now",
+	}
+
+	return rslt, nil
+}
+
+func (p *Provisioner) debugProvision(ctx context.Context, reservation *provision.Reservation) (interface{}, error) {
+	return p.debugProvisionImpl(ctx, reservation)
+}
+
+// ContainerProvision is entry point to container reservation
+func (p *Provisioner) debugProvisionImpl(ctx context.Context, reservation *provision.Reservation) (DebugResult, error) {
+	var config DebugInfo
+	if err := json.Unmarshal(reservation.Data, &config); err != nil {
+		return DebugResult{}, err
+	}
+
+	log.Info().Bool("sysdiag", config.Sysdiag).Msg("debug request")
+
+	if config.Sysdiag {
+		return p.debugSysdiag()
+	}
+
+	// not reached for now
+	result := DebugResult{
+		ResultFile: "coucou",
+	}
+
+	return result, nil
+}
+
+func (p *Provisioner) debugDecommission(ctx context.Context, reservation *provision.Reservation) error {
+	return nil
+}
+
+/* OLD CODE */
+
+/*
 // Debug provision schema
 type Debug struct {
 	Host    string `json:"host"`
@@ -113,3 +193,4 @@ func (p *Provisioner) stopZLF(ctx context.Context, ID string) error {
 
 	return nil
 }
+*/

@@ -209,6 +209,14 @@ func NetResourceToProvisionType(r workloads.NetworkNetResource) (pkg.NetResource
 	return nr, nil
 }
 
+func DebugToProvisionType(d workloads.Debug) (DebugInfo, string, error) {
+	debug := DebugInfo{
+		Sysdiag: d.Sysdiag,
+	}
+
+	return debug, d.NodeId, nil
+}
+
 // WorkloadToProvisionType TfgridReservationWorkload1 to provision.Reservation
 func WorkloadToProvisionType(w workloads.ReservationWorkload) (*provision.Reservation, error) {
 	reservation := &provision.Reservation{
@@ -246,13 +254,17 @@ func WorkloadToProvisionType(w workloads.ReservationWorkload) (*provision.Reserv
 			return nil, err
 		}
 	case workloads.Container:
-
 		data, reservation.NodeID, err = ContainerToProvisionType(tmp, reservationID)
 		if err != nil {
 			return nil, err
 		}
 	case workloads.K8S:
 		data, reservation.NodeID, err = K8SToProvisionType(tmp)
+		if err != nil {
+			return nil, err
+		}
+	case workloads.Debug:
+		data, reservation.NodeID, err = DebugToProvisionType(tmp)
 		if err != nil {
 			return nil, err
 		}
