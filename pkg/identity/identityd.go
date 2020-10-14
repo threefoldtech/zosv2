@@ -78,3 +78,8 @@ func (d *identityManager) Decrypt(message []byte) ([]byte, error) {
 func (d *identityManager) PrivateKey() []byte {
 	return d.key.PrivateKey
 }
+
+// PublicKey returns the private key of the node
+func (d *identityManager) PublicKey() []byte {
+	return d.key.PublicKey
+}

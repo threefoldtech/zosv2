@@ -41,6 +41,9 @@ type IdentityManager interface {
 
 	// PrivateKey sends the keypair
 	PrivateKey() []byte
+
+	// PrivateKey sends the keypair
+	PublicKey() []byte
 }
 
 // FarmID is the identification of a farm
