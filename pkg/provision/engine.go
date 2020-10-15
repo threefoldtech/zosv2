@@ -146,7 +146,7 @@ func (e *Engine) Run(ctx context.Context) error {
 				}
 
 				log.Info().Msg("Replying successfull decomission to chain")
-				if err := poller.decommissionReply(reservation.ID); err != nil {
+				if err := poller.submitExtrinsic(reservation.ID, "TemplateModule.contract_cancelled"); err != nil {
 					log.Error().Err(err).Msgf("failed to reply for decommission of reservation %s", reservation.ID)
 					continue
 				}
@@ -159,7 +159,7 @@ func (e *Engine) Run(ctx context.Context) error {
 				}
 
 				log.Info().Msg("Replying successfull provision to chain")
-				if err := poller.provisionReply(reservation.ID); err != nil {
+				if err := poller.submitExtrinsic(reservation.ID, "TemplateModule.contract_deployed"); err != nil {
 					log.Error().Err(err).Msgf("failed to reply for provision of reservation %s", reservation.ID)
 					continue
 				}
@@ -502,8 +502,9 @@ type contract struct {
 	AccountID     types.AccountID
 	NodeID        []types.U8
 	FarmerAccount types.AccountID
+	UserAccount   types.AccountID
 	Accepted      bool
-	WorkloadState Workloadstate
+	// WorkloadState Workloadstate
 }
 
 type Workloadstate struct {
@@ -538,6 +539,13 @@ type ContractUpdated struct {
 	Topics     []types.Hash
 }
 
+type ContractAccepted struct {
+	Phase      types.Phase
+	NodeID     []types.U8
+	ContractID types.U64
+	Topics     []types.Hash
+}
+
 type ContractPaid struct {
 	Phase      types.Phase
 	Who        types.AccountID
@@ -566,6 +574,7 @@ type EventRecords struct {
 	TemplateModule_ContractUpdated   []ContractUpdated
 	TemplateModule_ContractCancelled []ContractCancelled
 	TemplateModule_ContractDeployed  []ContractDeployed
+	TemplateModule_ContractAccepted  []ContractAccepted
 }
 
 // NewSubstratePoller creates a poller
@@ -621,11 +630,15 @@ func (s *SubstratePoller) GetReservations(ctx context.Context) <-chan *Reservati
 
 				for _, e := range events.TemplateModule_ContractPaid {
 					log.Info().Msg("Contract paid event received, parsing now")
-					fmt.Printf("%+v \n", e)
 					res, err := s.parseContract(e.ContractID, false)
 					if err != nil {
 						log.Err(err).Msg("Error parsing contract")
-						panic(err)
+						continue
+					}
+
+					// If reservation ID is empty this means this reservation is not for this node to deploy
+					if res.ID == "" {
+						continue
 					}
 
 					reservation := ReservationJob{
@@ -636,11 +649,15 @@ func (s *SubstratePoller) GetReservations(ctx context.Context) <-chan *Reservati
 				}
 				for _, e := range events.TemplateModule_ContractCancelled {
 					log.Info().Msg("Contract cancelled event received, parsing now")
-					fmt.Printf("%+v \n", e)
 					res, err := s.parseContract(e.ContractID, true)
 					if err != nil {
 						log.Err(err).Msg("Error parsing contract")
-						panic(err)
+						continue
+					}
+
+					// If reservation ID is empty this means this reservation is not for this node to deploy
+					if res.ID == "" {
+						continue
 					}
 
 					reservation := ReservationJob{
@@ -648,10 +665,6 @@ func (s *SubstratePoller) GetReservations(ctx context.Context) <-chan *Reservati
 						false,
 					}
 					ch <- &reservation
-				}
-				for _, e := range events.TemplateModule_ContractAdded {
-					log.Info().Msg("Contract added event received")
-					fmt.Printf("%+v \n", e)
 				}
 			}
 		}
@@ -668,11 +681,59 @@ type volume struct {
 	Type pkg.DeviceType `json:"type"`
 }
 
-func (s *SubstratePoller) parseContract(contractID types.U64, toDelete bool) (Reservation, error) {
+func (s *SubstratePoller) getContract(contractID types.U64) (contract, error) {
 	log.Info().Msgf("Fetching contract %+v", contractID)
 	meta, err := s.api.RPC.State.GetMetadataLatest()
 	if err != nil {
+		return contract{}, err
+	}
+
+	buf := bytes.NewBuffer(nil)
+	enc := scale.NewEncoder(buf)
+	if err := enc.Encode(contractID); err != nil {
+		return contract{}, err
+	}
+	k := buf.Bytes()
+
+	key, err := types.CreateStorageKey(meta, "TemplateModule", "Contracts", k, nil)
+	if err != nil {
+		return contract{}, err
+	}
+
+	var c contract
+	ok, err := s.api.RPC.State.GetStorageLatest(key, &c)
+	if err != nil || !ok {
+		log.Info().Msgf("Failed to decode contract with id %+v", contractID)
+		return contract{}, err
+	}
+
+	return c, nil
+}
+
+func byteSliceToString(bs []types.U8) string {
+	b := make([]byte, len(bs))
+	for i, v := range bs {
+		b[i] = byte(v)
+	}
+	return string(b)
+}
+
+func (s *SubstratePoller) parseContract(contractID types.U64, toDelete bool) (Reservation, error) {
+	meta, err := s.api.RPC.State.GetMetadataLatest()
+	if err != nil {
 		return Reservation{}, err
+	}
+
+	contract, err := s.getContract(contractID)
+	if err != nil {
+		return Reservation{}, nil
+	}
+
+	nodeID := byteSliceToString(contract.NodeID)
+	// If the nodeID does not equal this node's ID we return an empty reservation struct
+	// This will tell provisiond to skip this item
+	if nodeID != string(s.identity.NodeID()) {
+		return Reservation{}, nil
 	}
 
 	buf := bytes.NewBuffer(nil)
@@ -690,7 +751,7 @@ func (s *SubstratePoller) parseContract(contractID types.U64, toDelete bool) (Re
 	var v Volume
 	ok, err := s.api.RPC.State.GetStorageLatest(key, &v)
 	if err != nil || !ok {
-		log.Info().Msgf("Failed to decode contract with id %+v", contractID)
+		log.Info().Msgf("Failed to decode volume with id %+v", contractID)
 		return Reservation{}, err
 	}
 
@@ -723,90 +784,7 @@ func (s *SubstratePoller) parseContract(contractID types.U64, toDelete bool) (Re
 	return reservation, nil
 }
 
-func (s *SubstratePoller) decommissionReply(reservationID string) error {
-	meta, err := s.api.RPC.State.GetMetadataLatest()
-	if err != nil {
-		return err
-	}
-
-	id, err := strconv.Atoi(reservationID)
-	if err != nil {
-		return err
-	}
-
-	c, err := types.NewCall(meta, "TemplateModule.contract_cancelled", types.U64(id))
-	if err != nil {
-		return err
-	}
-
-	// Create the extrinsic
-	ext := types.NewExtrinsic(c)
-
-	genesisHash, err := s.api.RPC.Chain.GetBlockHash(0)
-	if err != nil {
-		return err
-	}
-	log.Info().Msgf("genesis hash %v", genesisHash)
-
-	rv, err := s.api.RPC.State.GetRuntimeVersionLatest()
-	if err != nil {
-		return err
-	}
-	log.Info().Msgf("runtime version latest %v", rv)
-
-	pubkey := s.identity.PublicKey()
-	log.Info().Msgf("node pubkey: %v", pubkey)
-
-	str := types.HexEncodeToString(s.identity.PrivateKey()[:32])
-	log.Info().Msgf("node priv key: %s", str)
-
-	identity, err := signature.KeyringPairFromSecret(str, "")
-	log.Info().Msgf("Node address: %s", identity.Address)
-
-	key, err := types.CreateStorageKey(meta, "System", "Account", identity.PublicKey, nil)
-	if err != nil {
-		return err
-	}
-	log.Info().Msgf("key %v", key)
-
-	var accountInfo types.AccountInfo
-	ok, err := s.api.RPC.State.GetStorageLatest(key, &accountInfo)
-	if err != nil || !ok {
-		log.Info().Msg("error getting account info")
-		return err
-	}
-	log.Info().Msgf("accountInfo %+v", accountInfo)
-
-	nonce := uint32(accountInfo.Nonce)
-	log.Info().Msgf("nonce %d", nonce)
-
-	o := types.SignatureOptions{
-		BlockHash:          genesisHash,
-		Era:                types.ExtrinsicEra{IsMortalEra: false},
-		GenesisHash:        genesisHash,
-		Nonce:              types.NewUCompactFromUInt(uint64(nonce)),
-		SpecVersion:        rv.SpecVersion,
-		Tip:                types.NewUCompactFromUInt(0),
-		TransactionVersion: 1,
-	}
-
-	// Sign the transaction using Alice's default account
-	err = ext.Sign(identity, o)
-	if err != nil {
-		return err
-	}
-
-	// Send the extrinsic
-	hash, err := s.api.RPC.Author.SubmitExtrinsic(ext)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Transfer sent with hash %#x\n", hash)
-	return nil
-}
-
-func (s *SubstratePoller) provisionReply(reservationID string) error {
+func (s *SubstratePoller) submitExtrinsic(reservationID, call string) error {
 	meta, err := s.api.RPC.State.GetMetadataLatest()
 	if err != nil {
 		return err
@@ -829,19 +807,13 @@ func (s *SubstratePoller) provisionReply(reservationID string) error {
 	if err != nil {
 		return err
 	}
-	log.Info().Msgf("genesis hash %v", genesisHash)
 
 	rv, err := s.api.RPC.State.GetRuntimeVersionLatest()
 	if err != nil {
 		return err
 	}
-	log.Info().Msgf("runtime version latest %v", rv)
-
-	pubkey := s.identity.PublicKey()
-	log.Info().Msgf("node pubkey: %v", pubkey)
 
 	str := types.HexEncodeToString(s.identity.PrivateKey()[:32])
-	log.Info().Msgf("node priv key: %s", str)
 
 	identity, err := signature.KeyringPairFromSecret(str, "")
 	log.Info().Msgf("Node address: %s", identity.Address)
@@ -850,7 +822,6 @@ func (s *SubstratePoller) provisionReply(reservationID string) error {
 	if err != nil {
 		return err
 	}
-	log.Info().Msgf("key %v", key)
 
 	var accountInfo types.AccountInfo
 	ok, err := s.api.RPC.State.GetStorageLatest(key, &accountInfo)
@@ -858,10 +829,8 @@ func (s *SubstratePoller) provisionReply(reservationID string) error {
 		log.Info().Msg("error getting account info")
 		return err
 	}
-	log.Info().Msgf("accountInfo %+v", accountInfo)
 
 	nonce := uint32(accountInfo.Nonce)
-	log.Info().Msgf("nonce %d", nonce)
 
 	o := types.SignatureOptions{
 		BlockHash:          genesisHash,
@@ -879,18 +848,16 @@ func (s *SubstratePoller) provisionReply(reservationID string) error {
 	}
 
 	// Send the extrinsic
-	hash, err := s.api.RPC.Author.SubmitExtrinsic(ext)
+	_, err = s.api.RPC.Author.SubmitExtrinsic(ext)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Transfer sent with hash %#x\n", hash)
 	return nil
 }
 
 func (s *SubstratePoller) createAddressFromID() error {
 	str := types.HexEncodeToString(s.identity.PrivateKey()[:32])
-	log.Info().Msgf("secret: %s", str)
 	identity, err := signature.KeyringPairFromSecret(str, "")
 	if err != nil {
 		return err
