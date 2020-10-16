@@ -497,27 +497,25 @@ type SubstratePoller struct {
 }
 
 type contract struct {
-	CuPrice       types.U64
-	SuPrice       types.U64
-	AccountID     types.AccountID
-	NodeID        []types.U8
-	FarmerAccount types.AccountID
-	UserAccount   types.AccountID
-	Accepted      bool
-	// WorkloadState Workloadstate
+	ResourcePrices resourcePrice
+	AccountID      types.AccountID
+	NodeID         []types.U8
+	FarmerAccount  types.AccountID
+	UserAccount    types.AccountID
+	Accepted       bool
+	WorkloadState  []types.U8
+	ExpiresAt      types.U64
+	LastClaimed    types.U64
 }
 
-type Workloadstate struct {
-	state
+type resourcePrice struct {
+	Currency types.U64
+	Sru      types.U64
+	Hru      types.U64
+	Cru      types.U64
+	Nru      types.U64
+	Mru      types.U64
 }
-
-type state string
-
-const (
-	Created   state = "created"
-	Deployed  state = "deployed"
-	Cancelled state = "cancelled"
-)
 
 type Volume struct {
 	DiskType types.U8
@@ -826,7 +824,9 @@ func (s *SubstratePoller) submitExtrinsic(reservationID, call string) error {
 	var accountInfo types.AccountInfo
 	ok, err := s.api.RPC.State.GetStorageLatest(key, &accountInfo)
 	if err != nil || !ok {
-		log.Info().Msg("error getting account info")
+		if !ok {
+			return fmt.Errorf("error getting account info")
+		}
 		return err
 	}
 
