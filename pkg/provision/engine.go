@@ -503,9 +503,9 @@ type contract struct {
 	FarmerAccount  types.AccountID
 	UserAccount    types.AccountID
 	Accepted       bool
-	WorkloadState  []types.U8
-	ExpiresAt      types.U64
-	LastClaimed    types.U64
+	// WorkloadState  []types.U8
+	// ExpiresAt      types.U64
+	// LastClaimed    types.U64
 }
 
 type resourcePrice struct {
