@@ -3,6 +3,7 @@ package monitord
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -38,32 +39,32 @@ func init() {
 
 // PrometheusSystemMonitor is a prometheus monitor struct
 type PrometheusSystemMonitor struct {
-	zbucCl zbus.Client
-	pusher *promPusher.Pusher
+	zbucCl           zbus.Client
+	pusher           *promPusher.Pusher
+	nodesExporterURL string
 }
 
 // NewPrometheusSystemMonitor creates a new prometheus connected system monitor
-func NewPrometheusSystemMonitor(zbucCl zbus.Client, promURL string) PrometheusSystemMonitor {
+func NewPrometheusSystemMonitor(zbucCl zbus.Client, promURL string, nodesExporterURL string) PrometheusSystemMonitor {
 	pusher := promPusher.New(promURL, "node1")
 
 	return PrometheusSystemMonitor{
-		zbucCl: zbucCl,
-		pusher: pusher,
+		zbucCl:           zbucCl,
+		pusher:           pusher,
+		nodesExporterURL: nodesExporterURL,
 	}
 }
 
 // Run runs the prometheus system monitor jobs
 func (m *PrometheusSystemMonitor) Run(ctx context.Context) error {
 	log.Info().Msg("running monitord")
-	// storaged := stubs.NewStorageModuleStub(m.zbucCl)
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(1 * time.Minute)
 
 	for {
 		select {
 		case <-ticker.C:
-			log.Info().Msg("Going to scrape")
-			err := m.fetchNodeStats(ctx)
+			err, _ := m.fetchNodeStats(ctx)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -81,37 +82,26 @@ func (m *PrometheusSystemMonitor) Run(ctx context.Context) error {
 	// return http.ListenAndServe(":31123", nil)
 }
 
-func (m *PrometheusSystemMonitor) fetchNodeStats(ctx context.Context) error {
-	resp, err := http.Get("http://localhost:9100/metrics")
+func (m *PrometheusSystemMonitor) fetchNodeStats(ctx context.Context) ([]io_prometheus_client.MetricFamily, error) {
+	resp, err := http.Get(m.nodesExporterURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
+	var metrics []io_prometheus_client.MetricFamily
 	decoder := expfmt.NewDecoder(resp.Body, expfmt.FmtOpenMetrics)
 
-	var items io_prometheus_client.MetricFamily
-	err = decoder.Decode(&items)
-	if err != nil {
-		return err
+	for {
+		var metric io_prometheus_client.MetricFamily
+		err := decoder.Decode(&metric)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return metrics, err
+		}
+		metrics = append(metrics, metric)
 	}
-
-	fmt.Println(items)
-
-	// if resp.StatusCode == http.StatusOK {
-	// 	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	items := strings.Split(string(bodyBytes), "\n")
-	// 	for _, item := range items {
-	// 		v, err := expfmt.ExtractSamples(&expfmt.DecodeOptions{}, item)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		log.Info().Msg(v.String())
-	// 	}
-	// }
-
-	return nil
+	return metrics, nil
 }
