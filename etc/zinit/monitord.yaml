@@ -1,0 +1,5 @@
+exec: monitord -broker unix://var/run/redis.sock
+after:
+  - boot
+  - storaged
+  - provisiond
