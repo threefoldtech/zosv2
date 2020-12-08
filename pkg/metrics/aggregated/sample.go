@@ -1,4 +1,4 @@
-package metrics
+package aggregated
 
 import (
 	"fmt"
