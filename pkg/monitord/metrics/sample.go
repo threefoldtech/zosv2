@@ -12,70 +12,72 @@ var (
 	ErrValueIsBeforePeriod = fmt.Errorf("provided sample is before defined period")
 )
 
-// Sample interface
-type Sample interface {
-	Sample(time.Time, float64) error
-	Last() float64
-	Average() float64
-	Max() float64
-	Time() time.Time
-}
-
-type alignedSample struct {
-	at    int64
-	width int64
-	last  float64
-	total float64
-	count float64
-	max   float64
+// Sample is an averaged value over the defined period.
+type Sample struct {
+	// Timestamp of this sample
+	Timestamp int64 `json:"timestamp"`
+	// Duration in seconds
+	Duration int64 `json:"duration"`
+	// Last feeded value
+	Last float64 `json:"last"`
+	// Total (sum) of all feeded values
+	Total float64 `json:"total"`
+	// Count number of samples
+	Count float64 `json:"count"`
+	// Max feeded value
+	Max float64 `json:"max"`
 }
 
 //NewAlignedSample aligned sample makes sure sample is always aligned to given duration
-func NewAlignedSample(at time.Time, width time.Duration) Sample {
+func NewAlignedSample(at time.Time, width time.Duration) *Sample {
 	// time need to be aligned per
 	widthSeconds := int64(width / time.Second)
 
-	return &alignedSample{
-		at:    (at.Unix() / widthSeconds) * widthSeconds,
-		width: widthSeconds,
+	return &Sample{
+		Timestamp: (at.Unix() / widthSeconds) * widthSeconds,
+		Duration:  widthSeconds,
 	}
 }
 
-func (s *alignedSample) Time() time.Time {
-	return time.Unix(s.at, 0)
+// Time gets timestamp as time.Time object
+func (s *Sample) Time() time.Time {
+	return time.Unix(s.Timestamp, 0)
 }
 
-func (s *alignedSample) Sample(t time.Time, v float64) error {
-	aligned := (t.Unix() / s.width) * s.width
-	if aligned > s.at {
+// Width gets duration as time.Duration
+func (s *Sample) Width() time.Duration {
+	return time.Duration(s.Duration) * time.Second
+}
+
+// Sample update this sample with given value at given time
+func (s *Sample) Sample(t time.Time, v float64) error {
+	aligned := (t.Unix() / s.Duration) * s.Duration
+	if aligned > s.Timestamp {
 		// this sample happened after this period is over
 		return ErrValueIsAfterPeriod
-	} else if aligned < s.at {
+	} else if aligned < s.Timestamp {
 		// this sample happened before the period has started
 		return ErrValueIsBeforePeriod
 	}
 
-	if v > s.max {
-		s.max = v
+	if v > s.Max {
+		s.Max = v
 	}
 
-	s.count++
-	s.total += v
-	s.last = v
+	s.Count++
+	s.Total += v
+	s.Last = v
 	return nil
 }
 
-func (s *alignedSample) Max() float64 {
-	return s.max
-}
-
-func (s *alignedSample) Last() float64 {
-	return s.last
-}
-
-func (s *alignedSample) Average() float64 {
-	if s.count != 0 {
-		return s.total / s.count
+// Average returns the average value
+func (s *Sample) Average() float64 {
+	if s.Count != 0 {
+		return s.Total / s.Count
 	}
 	return 0
+}
+
+func (s *Sample) String() string {
+	return fmt.Sprintf("sample(%d, %d, %f)", s.Timestamp, s.Duration, s.Average())
 }
