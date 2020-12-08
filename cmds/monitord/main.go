@@ -1,49 +1,32 @@
 package main
 
 import (
-	"context"
-	"flag"
+	"fmt"
+	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/threefoldtech/zbus"
-	"github.com/threefoldtech/zos/pkg/monitord"
-	"github.com/threefoldtech/zos/pkg/utils"
-)
-
-const (
-	module = "monitor"
+	"github.com/threefoldtech/zos/pkg/metrics"
+	"github.com/threefoldtech/zos/pkg/metrics/aggregated"
 )
 
 func main() {
-	var (
-		msgBrokerCon          string
-		prometheusEndpoint    string
-		nodesExporterEndpoint string
-	)
 
-	flag.StringVar(&msgBrokerCon, "broker", "unix:///var/run/redis.sock", "connection string to the message broker")
-	flag.StringVar(&prometheusEndpoint, "prometheusURL", "http:://192.168.170.0:9090", "connection string to the remote prometheus server")
-	flag.StringVar(&nodesExporterEndpoint, "nodesExporterEndpoint", "http:://localhost:9100", "connection string to the local nodes exporter")
-
-	zbusCl, err := zbus.NewRedisClient(msgBrokerCon)
+	storage, err := metrics.NewRedisStorage("tcp://localhost:6379", 1*time.Minute, 5*time.Minute)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to connect to message broker server")
+		log.Fatal().Err(err)
 	}
 
-	monitor := monitord.NewPrometheusSystemMonitor(zbusCl, prometheusEndpoint, nodesExporterEndpoint)
-
-	log.Info().
-		Str("broker", msgBrokerCon).
-		Msg("starting monitor module")
-
-	ctx := context.Background()
-	ctx, _ = utils.WithSignal(ctx)
-	utils.OnDone(ctx, func(_ error) {
-		log.Info().Msg("shutting down")
-	})
-
-	if err := monitor.Run(ctx); err != nil {
-		log.Error().Err(err).Msg("unexpected error")
+	if err := storage.Update("disk.size", "sda", aggregated.AverageMode, 38); err != nil {
+		log.Error().Err(err).Msg("failed to set value")
 	}
-	log.Info().Msg("monitord stopped")
+
+	metrics, err := storage.Metrics("disk.size")
+	if err != nil {
+		panic(err)
+	}
+
+	for _, m := range metrics {
+		fmt.Println("- ", m.ID)
+		fmt.Println("  - ", m.Values)
+	}
 }

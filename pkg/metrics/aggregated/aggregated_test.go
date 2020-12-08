@@ -9,7 +9,7 @@ import (
 
 func TestAggregatedDurationInitial(t *testing.T) {
 	require := require.New(t)
-	value := NewAggregatedMetric(Average, time.Minute, 5*time.Minute)
+	value := NewAggregatedMetric(AverageMode, time.Minute, 5*time.Minute)
 
 	averages := value.Averages()
 	require.Len(averages, 2)
@@ -18,7 +18,7 @@ func TestAggregatedDurationInitial(t *testing.T) {
 
 func TestAggregatedDurationAvg(t *testing.T) {
 	require := require.New(t)
-	aggregated := NewAggregatedMetric(Average, time.Minute, 5*time.Minute)
+	aggregated := NewAggregatedMetric(AverageMode, time.Minute, 5*time.Minute)
 
 	start := time.Date(2020, time.January, 1, 0, 0, 0, 0, time.Local)
 	// we will feed values as follows
@@ -67,7 +67,7 @@ func TestAggregatedDurationAvg(t *testing.T) {
 
 func TestAggregatedDurationDif(t *testing.T) {
 	require := require.New(t)
-	aggregated := NewAggregatedMetric(Differential, time.Minute, 5*time.Minute)
+	aggregated := NewAggregatedMetric(DifferentialMode, time.Minute, 5*time.Minute)
 
 	start := time.Date(2020, time.January, 1, 0, 0, 0, 0, time.Local)
 	// we will feed values as follows

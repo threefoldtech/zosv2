@@ -18,6 +18,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/firecracker-microvm/firecracker-go-sdk v0.19.1-0.20200110212531-741fc8cb0f2e
 	github.com/fsnotify/fsnotify v1.4.7
+	github.com/garyburd/redigo v1.6.2
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/go-redis/redis v6.15.5+incompatible
 	github.com/gomodule/redigo v2.0.0+incompatible

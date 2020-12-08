@@ -9,12 +9,12 @@ import (
 type AggregationMode int
 
 const (
-	// Average aggregation mode always keep track of the average over
+	// AverageMode aggregation mode always keep track of the average over
 	// the configured periods
-	Average AggregationMode = iota
-	// Differential aggregation mode always keeps track of the difference from
+	AverageMode AggregationMode = iota
+	// DifferentialMode aggregation mode always keeps track of the difference from
 	// the last value
-	Differential
+	DifferentialMode
 )
 
 // Aggregated represents an aggregated value
@@ -47,7 +47,7 @@ func (a *Aggregated) sample(t time.Time, value float64) {
 
 	last := a.Last
 	a.Last = value
-	if a.Mode == Differential {
+	if a.Mode == DifferentialMode {
 		// probably first update, so we keep track
 		// only of last value.
 		if last == 0 {
