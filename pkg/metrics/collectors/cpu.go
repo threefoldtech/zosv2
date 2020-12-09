@@ -40,7 +40,7 @@ func (d *cpuCollector) collectCPUs() error {
 	}
 
 	for index, cpuPercentStat := range cpuUsedPercentStats {
-		d.m.Update("node.cpu.user-percent", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuPercentStat)
+		d.m.Update("node.cpu.used-percent", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuPercentStat)
 	}
 
 	cpuTimes, err := cpu.Times(true)
@@ -49,11 +49,11 @@ func (d *cpuCollector) collectCPUs() error {
 	}
 
 	for index, cpuTime := range cpuTimes {
-		d.m.Update("node.cpu.idle", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.Idle)
-		d.m.Update("node.cpu.iowait", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.Iowait)
-		d.m.Update("node.cpu.system", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.System)
-		d.m.Update("node.cpu.irq", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.Irq)
-		d.m.Update("node.cpu.user", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.User)
+		d.m.Update("node.cpu.idle", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Idle)
+		d.m.Update("node.cpu.iowait", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Iowait)
+		d.m.Update("node.cpu.system", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.System)
+		d.m.Update("node.cpu.irq", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Irq)
+		d.m.Update("node.cpu.user", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.User)
 	}
 
 	tempStats, err := host.SensorsTemperatures()

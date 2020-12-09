@@ -54,7 +54,7 @@ func (a *Aggregated) sample(t time.Time, value float64) {
 			return
 		}
 		// otherwise the value is the difference (increase)
-		value = last - value
+		value = value - last
 	}
 
 	// update all samples
