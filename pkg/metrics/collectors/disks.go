@@ -16,11 +16,30 @@ import (
 type diskCollector struct {
 	cl zbus.Client
 	m  metrics.Storage
+
+	keys []string
 }
 
 // NewDiskCollector created a disk collector
 func NewDiskCollector(cl zbus.Client, storage metrics.Storage) Collector {
-	return &diskCollector{cl, storage}
+	return &diskCollector{
+		cl: cl,
+		m:  storage,
+		keys: []string{
+			"node.pool.mounted",
+			"node.pool.broken",
+			"node.pool.size",
+			"node.pool.used",
+			"node.pool.free",
+			"node.pool.used-percent",
+			"node.disk.read-bytes",
+			"node.disk.read-count",
+			"node.disk.read-time",
+			"node.disk.write-bytes",
+			"node.disk.write-count",
+			"node.disk.write-time",
+		},
+	}
 }
 
 func (d *diskCollector) collectMountedPool(pool *pkg.Pool) error {
@@ -30,6 +49,7 @@ func (d *diskCollector) collectMountedPool(pool *pkg.Pool) error {
 	}
 
 	d.updateAvg("node.pool.mounted", pool.Label, 1)
+	d.updateAvg("node.pool.broken", pool.Label, 0)
 
 	d.updateAvg("node.pool.size", pool.Label, float64(usage.Total))
 	d.updateAvg("node.pool.used", pool.Label, float64(usage.Used))
@@ -42,6 +62,7 @@ func (d *diskCollector) collectMountedPool(pool *pkg.Pool) error {
 	}
 
 	for disk, counter := range counters {
+		d.updateAvg("node.disk.broken", disk, 0)
 		d.updateDiff("node.disk.read-bytes", disk, float64(counter.ReadBytes))
 		d.updateDiff("node.disk.read-count", disk, float64(counter.ReadCount))
 		d.updateDiff("node.disk.read-time", disk, float64(counter.ReadTime))
@@ -65,10 +86,12 @@ func (d *diskCollector) updateDiff(name, id string, value float64) {
 	}
 }
 func (d *diskCollector) collectUnmountedPool(pool *pkg.Pool) error {
-	d.updateAvg("node.pool.mounted", pool.Label, 1)
+	d.updateAvg("node.pool.mounted", pool.Label, 0)
+	d.updateAvg("node.pool.broken", pool.Label, 0)
 
 	for _, device := range pool.Devices {
 		disk := filepath.Base(device)
+		d.updateAvg("node.disk.broken", disk, 0)
 		d.updateDiff("node.disk.read-bytes", disk, 0)
 		d.updateDiff("node.disk.read-count", disk, 0)
 		d.updateDiff("node.disk.read-time", disk, 0)
@@ -94,6 +117,22 @@ func (d *diskCollector) collectPools(storage *stubs.StorageModuleStub) {
 	}
 }
 
+func (d *diskCollector) collectBrokenPools(storage *stubs.StorageModuleStub) {
+	for _, pool := range storage.BrokenPools() {
+		d.updateAvg("node.pool.mounted", pool.Label, 0)
+		d.updateAvg("node.pool.broken", pool.Label, 1)
+	}
+
+	for _, device := range storage.BrokenDevices() {
+		disk := filepath.Base(device.Path)
+		d.updateAvg("node.disk.broken", disk, 1)
+	}
+}
+
+func (d *diskCollector) Metrics() []string {
+	return d.keys
+}
+
 // Collect method
 func (d *diskCollector) Collect() error {
 	// - we list the pools and device from stroaged
@@ -105,5 +144,7 @@ func (d *diskCollector) Collect() error {
 	//   - device.broken (1 or 0)
 	storage := stubs.NewStorageModuleStub(d.cl)
 	d.collectPools(storage)
+	d.collectBrokenPools(storage)
+
 	return nil
 }
