@@ -49,12 +49,11 @@ func (d *cpuCollector) collectCPUs() error {
 	}
 
 	for index, cpuTime := range cpuTimes {
-		name := fmt.Sprintf("%d", index)
-		d.m.Update("node.cpu.idle", name, aggregated.DifferentialMode, cpuTime.Idle)
-		d.m.Update("node.cpu.iowait", name, aggregated.DifferentialMode, cpuTime.Iowait)
-		d.m.Update("node.cpu.system", name, aggregated.DifferentialMode, cpuTime.System)
-		d.m.Update("node.cpu.irq", name, aggregated.DifferentialMode, cpuTime.Irq)
-		d.m.Update("node.cpu.user", name, aggregated.DifferentialMode, cpuTime.User)
+		d.m.Update("node.cpu.idle", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.Idle)
+		d.m.Update("node.cpu.iowait", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.Iowait)
+		d.m.Update("node.cpu.system", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.System)
+		d.m.Update("node.cpu.irq", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.Irq)
+		d.m.Update("node.cpu.user", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.User)
 	}
 
 	tempStats, err := host.SensorsTemperatures()
