@@ -76,13 +76,13 @@ func (d *diskCollector) collectMountedPool(pool *pkg.Pool) error {
 
 func (d *diskCollector) updateAvg(name, id string, value float64) {
 	if err := d.m.Update(name, id, aggregated.AverageMode, value); err != nil {
-		log.Error().Err(err).Msgf("failed to update metric '%s:%s'", name, id)
+		log.Error().Err(err).Str("metric", name).Str("id", id).Msg("failed to update metric")
 	}
 }
 
 func (d *diskCollector) updateDiff(name, id string, value float64) {
 	if err := d.m.Update(name, id, aggregated.AverageMode, value); err != nil {
-		log.Error().Err(err).Msgf("failed to update metric '%s:%s'", name, id)
+		log.Error().Err(err).Str("metric", name).Str("id", id).Msg("failed to update metric")
 	}
 }
 func (d *diskCollector) collectUnmountedPool(pool *pkg.Pool) error {

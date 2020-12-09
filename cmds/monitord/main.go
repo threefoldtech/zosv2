@@ -53,6 +53,7 @@ func main() {
 	modules := []collectors.Collector{
 		collectors.NewDiskCollector(cl, storage),
 		collectors.NewCPUCollector(storage),
+		collectors.NewMemoryCollector(storage),
 	}
 
 	for {
