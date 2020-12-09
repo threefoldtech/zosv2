@@ -2,48 +2,45 @@ package collectors
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/host"
-	"github.com/threefoldtech/zbus"
 	"github.com/threefoldtech/zos/pkg/metrics"
 	"github.com/threefoldtech/zos/pkg/metrics/aggregated"
 )
 
 // CPUCollector type
 type cpuCollector struct {
-	cl zbus.Client
-	m  metrics.CPU
+	m metrics.CPU
 
 	keys []string
 }
 
 // NewCPUCollector created a disk collector
-func NewCPUCollector(cl zbus.Client, storage metrics.Storage) Collector {
+func NewCPUCollector(storage metrics.Storage) Collector {
 	return &cpuCollector{
-		cl: cl,
-		m:  storage,
+		m: storage,
 		keys: []string{
-			"node.cpu.used",
+			"node.cpu.used-percent",
 			"node.cpu.idle",
 			"node.cpu.iowait",
 			"node.cpu.system",
 			"node.cpu.irq",
 			"node.cpu.user",
+			"node.cpu.temp",
 		},
 	}
 }
 
 func (d *cpuCollector) collectCPUs() error {
-	cpuUsedPercentStats, err := cpu.Percent(0*time.Second, true)
+	cpuUsedPercentStats, err := cpu.Percent(0, true)
 	if err != nil {
 		return errors.Wrap(err, "failed to get cpu usage percentages")
 	}
 
 	for index, cpuPercentStat := range cpuUsedPercentStats {
-		d.m.Update("node.cpu.used", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuPercentStat)
+		d.m.Update("node.cpu.user-percent", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuPercentStat)
 	}
 
 	cpuTimes, err := cpu.Times(true)
@@ -52,11 +49,12 @@ func (d *cpuCollector) collectCPUs() error {
 	}
 
 	for index, cpuTime := range cpuTimes {
-		d.m.Update("node.cpu.idle", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Idle)
-		d.m.Update("node.cpu.iowait", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Iowait)
-		d.m.Update("node.cpu.system", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.System)
-		d.m.Update("node.cpu.irq", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Irq)
-		d.m.Update("node.cpu.user", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.User)
+		name := fmt.Sprintf("%d", index)
+		d.m.Update("node.cpu.idle", name, aggregated.DifferentialMode, cpuTime.Idle)
+		d.m.Update("node.cpu.iowait", name, aggregated.DifferentialMode, cpuTime.Iowait)
+		d.m.Update("node.cpu.system", name, aggregated.DifferentialMode, cpuTime.System)
+		d.m.Update("node.cpu.irq", name, aggregated.DifferentialMode, cpuTime.Irq)
+		d.m.Update("node.cpu.user", name, aggregated.DifferentialMode, cpuTime.User)
 	}
 
 	tempStats, err := host.SensorsTemperatures()
