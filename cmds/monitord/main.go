@@ -11,7 +11,7 @@ import (
 
 func main() {
 
-	storage, err := metrics.NewRedisStorage("tcp://localhost:6379", 1*time.Minute, 5*time.Minute)
+	storage, err := metrics.NewRedisStorage("tcp://localhost:6379", 1*time.Minute, 5*time.Minute, time.Hour, 24*time.Hour)
 	if err != nil {
 		log.Fatal().Err(err)
 	}

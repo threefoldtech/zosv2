@@ -99,6 +99,33 @@ func (s *Module) Total(kind pkg.DeviceType) (uint64, error) {
 	}
 }
 
+// Pools return a list of pools
+func (s *Module) Pools() []pkg.Pool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	pools := make([]pkg.Pool, 0, len(s.pools))
+
+	for _, pool := range s.pools {
+		path, mounted := pool.Mounted()
+		var devices []string
+		for _, dev := range pool.Devices() {
+			devices = append(devices, dev.Path)
+		}
+
+		info := pkg.Pool{
+			Label:   pool.Name(),
+			Mounted: mounted,
+			Path:    path,
+			Devices: devices,
+		}
+
+		pools = append(pools, info)
+	}
+
+	return pools
+}
+
 // BrokenPools lists the broken storage pools that have been detected
 func (s *Module) BrokenPools() []pkg.BrokenPool {
 	s.mu.RLock()

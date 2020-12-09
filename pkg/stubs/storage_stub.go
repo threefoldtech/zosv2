@@ -162,6 +162,18 @@ func (s *StorageModuleStub) Path(arg0 string) (ret0 pkg.Filesystem, ret1 error) 
 	return
 }
 
+func (s *StorageModuleStub) Pools() (ret0 []pkg.Pool) {
+	args := []interface{}{}
+	result, err := s.client.Request(s.module, s.object, "Pools", args...)
+	if err != nil {
+		panic(err)
+	}
+	if err := result.Unmarshal(0, &ret0); err != nil {
+		panic(err)
+	}
+	return
+}
+
 func (s *StorageModuleStub) ReleaseFilesystem(arg0 string) (ret0 error) {
 	args := []interface{}{arg0}
 	result, err := s.client.Request(s.module, s.object, "ReleaseFilesystem", args...)

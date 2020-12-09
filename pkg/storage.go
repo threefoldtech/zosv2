@@ -65,6 +65,14 @@ type (
 		// Err returned by the action which let to the pool being marked as broken
 		Err error
 	}
+
+	// Pool information
+	Pool struct {
+		Label   string
+		Devices []string
+		Mounted bool
+		Path    string
+	}
 )
 
 // Known device types
@@ -198,6 +206,10 @@ type VDiskModule interface {
 type StorageModule interface {
 	VolumeAllocater
 	ZDBAllocater
+
+	// Pool returns a list of working pools
+	// check BrokenPools method for list of broken pools
+	Pools() []Pool
 
 	// Total gives the total amount of storage available for a device type
 	Total(kind DeviceType) (uint64, error)
