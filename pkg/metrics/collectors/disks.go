@@ -1,7 +1,10 @@
 package collectors
 
 import (
+	"path/filepath"
+
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/threefoldtech/zbus"
 	"github.com/threefoldtech/zos/pkg"
@@ -21,33 +24,66 @@ func (d *DiskCollector) collectMountedPool(pool *pkg.Pool) error {
 		return errors.Wrapf(err, "failed to get usage of mounted pool '%s'", pool.Path)
 	}
 
-	d.m.Update("node.pool.size", pool.Label, aggregated.AverageMode, float64(usage.Total))
-	d.m.Update("node.pool.used", pool.Label, aggregated.AverageMode, float64(usage.Used))
-	d.m.Update("node.pool.free", pool.Label, aggregated.AverageMode, float64(usage.Free))
-	d.m.Update("node.pool.used-percent", pool.Label, aggregated.AverageMode, float64(usage.UsedPercent))
+	d.updateAvg("node.pool.mounted", pool.Label, 1)
 
-	_, err = disk.IOCounters(pool.Devices...)
+	d.updateAvg("node.pool.size", pool.Label, float64(usage.Total))
+	d.updateAvg("node.pool.used", pool.Label, float64(usage.Used))
+	d.updateAvg("node.pool.free", pool.Label, float64(usage.Free))
+	d.updateAvg("node.pool.used-percent", pool.Label, float64(usage.UsedPercent))
+
+	counters, err := disk.IOCounters(pool.Devices...)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get io counters for devices '%+v'", pool.Devices)
 	}
+
+	for disk, counter := range counters {
+		d.updateDiff("node.disk.read-bytes", disk, float64(counter.ReadBytes))
+		d.updateDiff("node.disk.read-count", disk, float64(counter.ReadCount))
+		d.updateDiff("node.disk.read-time", disk, float64(counter.ReadTime))
+		d.updateDiff("node.disk.write-bytes", disk, float64(counter.ReadBytes))
+		d.updateDiff("node.disk.write-count", disk, float64(counter.ReadCount))
+		d.updateDiff("node.disk.write-time", disk, float64(counter.ReadTime))
+	}
+
 	return nil
 }
 
+func (d *DiskCollector) updateAvg(name, id string, value float64) {
+	if err := d.m.Update(name, id, aggregated.AverageMode, value); err != nil {
+		log.Error().Err(err).Msgf("failed to update metric '%s:%s'", name, id)
+	}
+}
+
+func (d *DiskCollector) updateDiff(name, id string, value float64) {
+	if err := d.m.Update(name, id, aggregated.AverageMode, value); err != nil {
+		log.Error().Err(err).Msgf("failed to update metric '%s:%s'", name, id)
+	}
+}
 func (d *DiskCollector) collectUnmountedPool(pool *pkg.Pool) error {
-	return nil
+	d.updateAvg("node.pool.mounted", pool.Label, 1)
+
+	for _, device := range pool.Devices {
+		disk := filepath.Base(device)
+		d.updateDiff("node.disk.read-bytes", disk, 0)
+		d.updateDiff("node.disk.read-count", disk, 0)
+		d.updateDiff("node.disk.read-time", disk, 0)
+		d.updateDiff("node.disk.write-bytes", disk, 0)
+		d.updateDiff("node.disk.write-count", disk, 0)
+		d.updateDiff("node.disk.write-time", disk, 0)
+	}
 }
 
 func (d *DiskCollector) collectPools(storage *stubs.StorageModuleStub) error {
 
 	for _, pool := range storage.Pools() {
-		if pool.Mounted {
-			if err := d.collectMountedPool(&pool); err != nil {
-				return err
-			}
-		} else {
-			if err := d.collectUnmountedPool(&pool); err != nil {
-				return err
-			}
+		collector := d.collectMountedPool
+
+		if !pool.Mounted {
+			collector = d.collectUnmountedPool
+		}
+
+		if err := collector(&pool); err != nil {
+
 		}
 	}
 
