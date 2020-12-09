@@ -6,24 +6,31 @@ import (
 )
 
 // AggregationMode type
-type AggregationMode int
+type AggregationMode float64
 
 const (
 	// AverageMode aggregation mode always keep track of the average over
 	// the configured periods
 	AverageMode AggregationMode = iota
 	// DifferentialMode aggregation mode always keeps track of the difference from
-	// the last value
+	// the last value divided by the seconds from last value
 	DifferentialMode
 )
 
+// PercentMode is a differential aggregation mode where the final value
+// is divided over the given `of` value before storing.
+func PercentMode(of float64) AggregationMode {
+	return AggregationMode(of)
+}
+
 // Aggregated represents an aggregated value
 type Aggregated struct {
-	Mode      AggregationMode `json:"mode"`
-	Samples   []*Sample       `json:"samples"`
-	Durations []time.Duration `json:"durations"`
-	Last      float64         `json:"last"`
-	m         sync.RWMutex    `json:"_"`
+	Mode       AggregationMode `json:"mode"`
+	Samples    []*Sample       `json:"samples"`
+	Durations  []time.Duration `json:"durations"`
+	Last       float64         `json:"last"`
+	LastUpdate time.Time       `json:"last-update"`
+	m          sync.RWMutex    `json:"_"`
 }
 
 // NewAggregatedMetric returns an aggregated metric over given period
@@ -46,7 +53,9 @@ func (a *Aggregated) sample(t time.Time, value float64) {
 	}
 
 	last := a.Last
+	lastUpdate := a.LastUpdate
 	a.Last = value
+	a.LastUpdate = time.Now()
 	if a.Mode == DifferentialMode {
 		// probably first update, so we keep track
 		// only of last value.
@@ -54,7 +63,8 @@ func (a *Aggregated) sample(t time.Time, value float64) {
 			return
 		}
 		// otherwise the value is the difference (increase)
-		value = value - last
+		seconds := float64(a.LastUpdate.Sub(lastUpdate)) / float64(time.Second)
+		value = (value - last) / seconds
 	}
 
 	// update all samples

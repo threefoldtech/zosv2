@@ -81,7 +81,7 @@ func (d *diskCollector) updateAvg(name, id string, value float64) {
 }
 
 func (d *diskCollector) updateDiff(name, id string, value float64) {
-	if err := d.m.Update(name, id, aggregated.AverageMode, value); err != nil {
+	if err := d.m.Update(name, id, aggregated.DifferentialMode, value); err != nil {
 		log.Error().Err(err).Str("metric", name).Str("id", id).Msg("failed to update metric")
 	}
 }
