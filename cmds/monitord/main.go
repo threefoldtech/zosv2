@@ -54,6 +54,7 @@ func main() {
 		collectors.NewDiskCollector(cl, storage),
 		collectors.NewCPUCollector(storage),
 		collectors.NewMemoryCollector(storage),
+		collectors.NewTempsCollector(storage),
 	}
 
 	for {

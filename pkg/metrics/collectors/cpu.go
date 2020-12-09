@@ -5,7 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/host"
 	"github.com/threefoldtech/zos/pkg/metrics"
 	"github.com/threefoldtech/zos/pkg/metrics/aggregated"
 )
@@ -28,7 +27,6 @@ func NewCPUCollector(storage metrics.Storage) Collector {
 			"node.cpu.system",
 			"node.cpu.irq",
 			"node.cpu.user",
-			"node.cpu.temp",
 		},
 	}
 }
@@ -54,15 +52,6 @@ func (d *cpuCollector) collectCPUs() error {
 		d.m.Update("node.cpu.system", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.System)
 		d.m.Update("node.cpu.irq", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Irq)
 		d.m.Update("node.cpu.user", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.User)
-	}
-
-	tempStats, err := host.SensorsTemperatures()
-	if err != nil {
-		return errors.Wrap(err, "failed to get temperature stats")
-	}
-
-	for _, tempStat := range tempStats {
-		d.m.Update("node.cpu.temp", tempStat.SensorKey, aggregated.AverageMode, tempStat.Temperature)
 	}
 
 	return nil
