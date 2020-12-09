@@ -9,7 +9,7 @@ import (
 
 // CPUCollector type
 type tempsCollector struct {
-	m metrics.CPU
+	m metrics.Sensor
 
 	keys []string
 }
