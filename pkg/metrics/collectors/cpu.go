@@ -13,12 +13,30 @@ import (
 )
 
 // CPUCollector type
-type CPUCollector struct {
+type cpuCollector struct {
 	cl zbus.Client
 	m  metrics.CPU
+
+	keys []string
 }
 
-func (d *CPUCollector) collectCPUs() error {
+// NewCPUCollector created a disk collector
+func NewCPUCollector(cl zbus.Client, storage metrics.Storage) Collector {
+	return &cpuCollector{
+		cl: cl,
+		m:  storage,
+		keys: []string{
+			"node.cpu.used",
+			"node.cpu.idle",
+			"node.cpu.iowait",
+			"node.cpu.system",
+			"node.cpu.irq",
+			"node.cpu.user",
+		},
+	}
+}
+
+func (d *cpuCollector) collectCPUs() error {
 	cpuUsedPercentStats, err := cpu.Percent(0*time.Second, true)
 	if err != nil {
 		return errors.Wrap(err, "failed to get cpu usage percentages")
@@ -34,11 +52,11 @@ func (d *CPUCollector) collectCPUs() error {
 	}
 
 	for index, cpuTime := range cpuTimes {
-		d.m.Update("node.cpu.idle", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.Idle)
-		d.m.Update("node.cpu.iowait", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.Iowait)
-		d.m.Update("node.cpu.system", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.System)
-		d.m.Update("node.cpu.irq", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.Irq)
-		d.m.Update("node.cpu.user", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuTime.User)
+		d.m.Update("node.cpu.idle", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Idle)
+		d.m.Update("node.cpu.iowait", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Iowait)
+		d.m.Update("node.cpu.system", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.System)
+		d.m.Update("node.cpu.irq", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Irq)
+		d.m.Update("node.cpu.user", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.User)
 	}
 
 	tempStats, err := host.SensorsTemperatures()
@@ -53,7 +71,11 @@ func (d *CPUCollector) collectCPUs() error {
 	return nil
 }
 
+func (d *cpuCollector) Metrics() []string {
+	return d.keys
+}
+
 // Collect method
-func (d *CPUCollector) Collect() error {
+func (d *cpuCollector) Collect() error {
 	return d.collectCPUs()
 }
