@@ -13,12 +13,17 @@ import (
 	"github.com/threefoldtech/zos/pkg/stubs"
 )
 
-type DiskCollector struct {
+type diskCollector struct {
 	cl zbus.Client
 	m  metrics.Storage
 }
 
-func (d *DiskCollector) collectMountedPool(pool *pkg.Pool) error {
+// NewDiskCollector created a disk collector
+func NewDiskCollector(cl zbus.Client, storage metrics.Storage) Collector {
+	return &diskCollector{cl, storage}
+}
+
+func (d *diskCollector) collectMountedPool(pool *pkg.Pool) error {
 	usage, err := disk.Usage(pool.Path)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get usage of mounted pool '%s'", pool.Path)
@@ -48,18 +53,18 @@ func (d *DiskCollector) collectMountedPool(pool *pkg.Pool) error {
 	return nil
 }
 
-func (d *DiskCollector) updateAvg(name, id string, value float64) {
+func (d *diskCollector) updateAvg(name, id string, value float64) {
 	if err := d.m.Update(name, id, aggregated.AverageMode, value); err != nil {
 		log.Error().Err(err).Msgf("failed to update metric '%s:%s'", name, id)
 	}
 }
 
-func (d *DiskCollector) updateDiff(name, id string, value float64) {
+func (d *diskCollector) updateDiff(name, id string, value float64) {
 	if err := d.m.Update(name, id, aggregated.AverageMode, value); err != nil {
 		log.Error().Err(err).Msgf("failed to update metric '%s:%s'", name, id)
 	}
 }
-func (d *DiskCollector) collectUnmountedPool(pool *pkg.Pool) error {
+func (d *diskCollector) collectUnmountedPool(pool *pkg.Pool) error {
 	d.updateAvg("node.pool.mounted", pool.Label, 1)
 
 	for _, device := range pool.Devices {
@@ -71,10 +76,11 @@ func (d *DiskCollector) collectUnmountedPool(pool *pkg.Pool) error {
 		d.updateDiff("node.disk.write-count", disk, 0)
 		d.updateDiff("node.disk.write-time", disk, 0)
 	}
+
+	return nil
 }
 
-func (d *DiskCollector) collectPools(storage *stubs.StorageModuleStub) error {
-
+func (d *diskCollector) collectPools(storage *stubs.StorageModuleStub) {
 	for _, pool := range storage.Pools() {
 		collector := d.collectMountedPool
 
@@ -83,15 +89,13 @@ func (d *DiskCollector) collectPools(storage *stubs.StorageModuleStub) error {
 		}
 
 		if err := collector(&pool); err != nil {
-
+			log.Error().Err(err).Str("pool", pool.Label).Msg("failed to collect metrics for pool")
 		}
 	}
-
-	return nil
 }
 
 // Collect method
-func (d *DiskCollector) Collect() error {
+func (d *diskCollector) Collect() error {
 	// - we list the pools and device from stroaged
 	// - to get usage information we need to access pool.Path (/mnt/<id>)
 	//   - (we know its btrfs)
