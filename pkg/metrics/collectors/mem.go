@@ -10,24 +10,24 @@ import (
 
 type memCollector struct {
 	m    metrics.Storage
-	keys []string
+	keys []Metric
 }
 
 // NewMemoryCollector creates a new memory collector
 func NewMemoryCollector(storage metrics.Storage) Collector {
 	return &memCollector{
 		m: storage,
-		keys: []string{
-			"node.mem.size",
-			"node.mem.free",
-			"node.mem.used",
-			"node.mem.available",
-			"node.mem.percent",
+		keys: []Metric{
+			{"node.mem.size", "average total memory size in bytes"},
+			{"node.mem.free", "average free memory size in bytes"},
+			{"node.mem.used", "average used memory size in bytes"},
+			{"node.mem.available", "average available memory size in bytes"},
+			{"node.mem.percent", "average memory usage percentage"},
 		},
 	}
 }
 
-func (m *memCollector) Metrics() []string {
+func (m *memCollector) Metrics() []Metric {
 	return m.keys
 }
 

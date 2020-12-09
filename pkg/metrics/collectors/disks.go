@@ -17,7 +17,7 @@ type diskCollector struct {
 	cl zbus.Client
 	m  metrics.Storage
 
-	keys []string
+	keys []Metric
 }
 
 // NewDiskCollector created a disk collector
@@ -25,19 +25,19 @@ func NewDiskCollector(cl zbus.Client, storage metrics.Storage) Collector {
 	return &diskCollector{
 		cl: cl,
 		m:  storage,
-		keys: []string{
-			"node.pool.mounted",
-			"node.pool.broken",
-			"node.pool.size",
-			"node.pool.used",
-			"node.pool.free",
-			"node.pool.used-percent",
-			"node.disk.read-bytes",
-			"node.disk.read-count",
-			"node.disk.read-time",
-			"node.disk.write-bytes",
-			"node.disk.write-count",
-			"node.disk.write-time",
+		keys: []Metric{
+			{"node.pool.mounted", "pool is mounted (1) or not mounted (0)"},
+			{"node.pool.broken", "pool is broken (1) or not broken (0)"},
+			{"node.pool.size", "pool size in bytes"},
+			{"node.pool.used", "pool used space in bytes"},
+			{"node.pool.free", "pool free space in bytes"},
+			{"node.pool.used-percent", "pool usage percent"},
+			{"node.disk.read-bytes", "average disk read bytes per second"},
+			{"node.disk.read-count", "average number of read operations per second"},
+			{"node.disk.read-time", "average read operation time per second"},
+			{"node.disk.write-bytes", "average disk read bytes per second"},
+			{"node.disk.write-count", "average number of write operations per second"},
+			{"node.disk.write-time", "average number of write operations per second"},
 		},
 	}
 }
@@ -129,7 +129,7 @@ func (d *diskCollector) collectBrokenPools(storage *stubs.StorageModuleStub) {
 	}
 }
 
-func (d *diskCollector) Metrics() []string {
+func (d *diskCollector) Metrics() []Metric {
 	return d.keys
 }
 

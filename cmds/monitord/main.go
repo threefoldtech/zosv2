@@ -41,7 +41,7 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to connect to redis")
 	}
 
-	storage, err := metrics.NewRedisStorage(msgBrokerCon, 1*time.Minute, 5*time.Minute, time.Hour)
+	storage, err := metrics.NewRedisStorage(msgBrokerCon, 1*time.Minute, 5*time.Minute, time.Hour, 24*time.Hour)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to redis")
 	}
@@ -68,13 +68,13 @@ func main() {
 		// DEBUG CODE:
 		for _, collector := range modules {
 			for _, key := range collector.Metrics() {
-				values, err := storage.Metrics(key)
+				values, err := storage.Metrics(key.Name)
 				if err != nil {
-					log.Error().Err(err).Str("id", key).Msg("failed to get metric")
+					log.Error().Err(err).Str("id", key.Name).Msg("failed to get metric")
 				}
-				fmt.Println("key:", key)
+				fmt.Printf("- %s (%s)\n", key.Name, key.Descritpion)
 				for _, value := range values {
-					fmt.Printf(" - %s: %+v\n", value.ID, value.Values)
+					fmt.Printf("  - %s: %+v\n", value.ID, value.Values)
 				}
 			}
 		}

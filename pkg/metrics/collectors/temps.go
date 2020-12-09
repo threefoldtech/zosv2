@@ -11,15 +11,15 @@ import (
 type tempsCollector struct {
 	m metrics.Sensor
 
-	keys []string
+	keys []Metric
 }
 
 // NewTempsCollector created a disk collector
 func NewTempsCollector(storage metrics.Storage) Collector {
 	return &tempsCollector{
 		m: storage,
-		keys: []string{
-			"node.sensor.reading",
+		keys: []Metric{
+			{"node.sensor.reading", "average value reported by sensor"},
 		},
 	}
 }
@@ -37,7 +37,7 @@ func (d *tempsCollector) collectSensors() error {
 	return nil
 }
 
-func (d *tempsCollector) Metrics() []string {
+func (d *tempsCollector) Metrics() []Metric {
 	return d.keys
 }
 

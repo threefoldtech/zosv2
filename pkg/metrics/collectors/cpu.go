@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/threefoldtech/zos/pkg/metrics"
 	"github.com/threefoldtech/zos/pkg/metrics/aggregated"
@@ -13,20 +14,20 @@ import (
 type cpuCollector struct {
 	m metrics.CPU
 
-	keys []string
+	keys []Metric
 }
 
 // NewCPUCollector created a disk collector
 func NewCPUCollector(storage metrics.Storage) Collector {
 	return &cpuCollector{
 		m: storage,
-		keys: []string{
-			"node.cpu.used-percent",
-			"node.cpu.idle",
-			"node.cpu.iowait",
-			"node.cpu.system",
-			"node.cpu.irq",
-			"node.cpu.user",
+		keys: []Metric{
+			{"node.cpu.used-percent", "cpu usage percent"},
+			{"node.cpu.idle", "ideal cpu time per second"},
+			{"node.cpu.iowait", "io-wait cpu time per second"},
+			{"node.cpu.system", "system cpu time per second"},
+			{"node.cpu.irq", "IRQ cpu time per second"},
+			{"node.cpu.user", "user cpu time per second"},
 		},
 	}
 }
@@ -47,17 +48,25 @@ func (d *cpuCollector) collectCPUs() error {
 	}
 
 	for index, cpuTime := range cpuTimes {
-		d.m.Update("node.cpu.idle", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Idle)
-		d.m.Update("node.cpu.iowait", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Iowait)
-		d.m.Update("node.cpu.system", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.System)
-		d.m.Update("node.cpu.irq", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.Irq)
-		d.m.Update("node.cpu.user", fmt.Sprintf("%d", index), aggregated.DifferentialMode, cpuTime.User)
+		name := fmt.Sprintf("%d", index)
+
+		d.updateDiff("node.cpu.idle", name, cpuTime.Idle)
+		d.updateDiff("node.cpu.iowait", name, cpuTime.Iowait)
+		d.updateDiff("node.cpu.system", name, cpuTime.System)
+		d.updateDiff("node.cpu.irq", name, cpuTime.Irq)
+		d.updateDiff("node.cpu.user", name, cpuTime.User)
 	}
 
 	return nil
 }
 
-func (d *cpuCollector) Metrics() []string {
+func (d *cpuCollector) updateDiff(name, id string, value float64) {
+	if err := d.m.Update(name, id, aggregated.DifferentialMode, value); err != nil {
+		log.Error().Err(err).Str("metric", name).Str("id", id).Msg("failed to update metric")
+	}
+}
+
+func (d *cpuCollector) Metrics() []Metric {
 	return d.keys
 }
 
