@@ -104,7 +104,7 @@ func (r *redisStorage) Update(name, id string, mode aggregated.AggregationMode, 
 	}
 
 	ag.Sample(value)
-	data, err = json.Marshal(ag)
+	data, err = json.Marshal(&ag)
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize metric")
 	}
