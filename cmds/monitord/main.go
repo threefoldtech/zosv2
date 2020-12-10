@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
+	"os"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -19,10 +21,12 @@ func main() {
 		msgBrokerCon string
 		debug        bool
 		ver          bool
+		dump         bool
 	)
 
 	flag.StringVar(&msgBrokerCon, "broker", "unix:///var/run/redis.sock", "connection string to the message broker")
 	flag.BoolVar(&debug, "debug", false, "enable debug logging")
+	flag.BoolVar(&dump, "dump", false, "dump collected metrics and exit")
 	flag.BoolVar(&ver, "v", false, "show version and exit")
 
 	flag.Parse()
@@ -57,15 +61,8 @@ func main() {
 		collectors.NewTempsCollector(storage),
 	}
 
-	for {
-		for _, collector := range modules {
-			if err := collector.Collect(); err != nil {
-				log.Error().Err(err).Msgf("failed to collect metrics from '%T'", collector)
-			}
-		}
+	if dump {
 
-		<-time.After(30 * time.Second)
-		// DEBUG CODE:
 		for _, collector := range modules {
 			for _, key := range collector.Metrics() {
 				values, err := storage.Metrics(key.Name)
@@ -78,5 +75,34 @@ func main() {
 				}
 			}
 		}
+
+		os.Exit(0)
+	}
+
+	var metrics []collectors.Metric
+	for _, collector := range modules {
+		metrics = append(metrics, collector.Metrics()...)
+	}
+
+	// collection
+	go func() {
+		for _, collector := range modules {
+			if err := collector.Collect(); err != nil {
+				log.Error().Err(err).Msgf("failed to collect metrics from '%T'", collector)
+			}
+		}
+
+		<-time.After(30 * time.Second)
+	}()
+
+	mux := createServeMux(storage, metrics)
+
+	server := http.Server{
+		Addr:    ":9100",
+		Handler: mux,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal().Err(err).Msg("failed to serve metrics")
 	}
 }
