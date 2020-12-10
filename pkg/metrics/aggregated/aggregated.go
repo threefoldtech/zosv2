@@ -6,7 +6,7 @@ import (
 )
 
 // AggregationMode type
-type AggregationMode float64
+type AggregationMode int
 
 const (
 	// AverageMode aggregation mode always keep track of the average over
@@ -16,12 +16,6 @@ const (
 	// the last value divided by the seconds from last value
 	DifferentialMode
 )
-
-// PercentMode is a differential aggregation mode where the final value
-// is divided over the given `of` value before storing.
-func PercentMode(of float64) AggregationMode {
-	return AggregationMode(of)
-}
 
 // Aggregated represents an aggregated value
 type Aggregated struct {
