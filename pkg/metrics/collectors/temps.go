@@ -2,7 +2,7 @@ package collectors
 
 import (
 	"github.com/pkg/errors"
-	"github.com/shirou/gopsutil/host"
+	"github.com/shirou/gopsutil/v3/host"
 	"github.com/threefoldtech/zos/pkg/metrics"
 	"github.com/threefoldtech/zos/pkg/metrics/aggregated"
 )
@@ -19,7 +19,7 @@ func NewTempsCollector(storage metrics.Storage) Collector {
 	return &tempsCollector{
 		m: storage,
 		keys: []Metric{
-			{"node.sensor.reading", "average value reported by sensor"},
+			{"health.sensor.reading", "average percent reported by sensor (value/high) * 100"},
 		},
 	}
 }
@@ -31,7 +31,7 @@ func (d *tempsCollector) collectSensors() error {
 	}
 
 	for _, tempStat := range sensors {
-		d.m.Update("node.sensor.reading", tempStat.SensorKey, aggregated.AverageMode, tempStat.Temperature)
+		d.m.Update("health.sensor.reading", tempStat.SensorKey, aggregated.AverageMode, (tempStat.Temperature/tempStat.High)*100)
 	}
 
 	return nil

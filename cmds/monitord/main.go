@@ -86,13 +86,15 @@ func main() {
 
 	// collection
 	go func() {
-		for _, collector := range modules {
-			if err := collector.Collect(); err != nil {
-				log.Error().Err(err).Msgf("failed to collect metrics from '%T'", collector)
+		for {
+			for _, collector := range modules {
+				if err := collector.Collect(); err != nil {
+					log.Error().Err(err).Msgf("failed to collect metrics from '%T'", collector)
+				}
 			}
-		}
 
-		<-time.After(30 * time.Second)
+			<-time.After(30 * time.Second)
+		}
 	}()
 
 	mux := createServeMux(storage, metrics)

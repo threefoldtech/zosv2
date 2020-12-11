@@ -24,7 +24,8 @@ type Aggregated struct {
 	Durations  []time.Duration `json:"durations"`
 	Last       float64         `json:"last"`
 	LastUpdate time.Time       `json:"last-update"`
-	m          sync.RWMutex    `json:"_"`
+
+	m sync.RWMutex
 }
 
 // NewAggregatedMetric returns an aggregated metric over given period

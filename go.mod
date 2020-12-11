@@ -34,6 +34,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.0
 	github.com/rs/zerolog v1.19.0
 	github.com/shirou/gopsutil v2.19.11+incompatible
+	github.com/shirou/gopsutil/v3 v3.20.11
 	github.com/stretchr/testify v1.6.1
 	github.com/termie/go-shutil v0.0.0-20140729215957-bcacb06fecae
 	github.com/threefoldtech/0-fs v1.3.1-0.20201203163303-d963de9adea7
@@ -48,7 +49,7 @@ require (
 	github.com/yggdrasil-network/yggdrasil-go v0.3.15-0.20200526002434-ed3bf5ef0736
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
-	golang.org/x/sys v0.0.0-20200802091954-4b90ce9b60b3
+	golang.org/x/sys v0.0.0-20201024232916-9f70ab9862d5
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20191219145116-fa6499c8e75f
 	gopkg.in/yaml.v2 v2.3.0
 	gotest.tools v2.2.0+incompatible

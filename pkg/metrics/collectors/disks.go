@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/threefoldtech/zbus"
 	"github.com/threefoldtech/zos/pkg"
 	"github.com/threefoldtech/zos/pkg/metrics"
@@ -26,18 +26,18 @@ func NewDiskCollector(cl zbus.Client, storage metrics.Storage) Collector {
 		cl: cl,
 		m:  storage,
 		keys: []Metric{
-			{"node.pool.mounted", "pool is mounted (1) or not mounted (0)"},
-			{"node.pool.broken", "pool is broken (1) or not broken (0)"},
-			{"node.pool.size", "pool size in bytes"},
-			{"node.pool.used", "pool used space in bytes"},
-			{"node.pool.free", "pool free space in bytes"},
-			{"node.pool.used-percent", "pool usage percent"},
-			{"node.disk.read-bytes", "average disk read bytes per second"},
-			{"node.disk.read-count", "average number of read operations per second"},
-			{"node.disk.read-time", "average read operation time per second"},
-			{"node.disk.write-bytes", "average disk read bytes per second"},
-			{"node.disk.write-count", "average number of write operations per second"},
-			{"node.disk.write-time", "average number of write operations per second"},
+			{"health.pool.mounted", "pool is mounted (1) or not mounted (0)"},
+			{"health.pool.broken", "pool is broken (1) or not broken (0)"},
+			{"utilization.pool.size", "pool size in bytes"},
+			{"utilization.pool.used", "pool used space in bytes"},
+			{"utilization.pool.free", "pool free space in bytes"},
+			{"utilization.pool.used-percent", "pool usage percent"},
+			{"utilization.disk.read-bytes", "average disk read bytes per second"},
+			{"utilization.disk.read-count", "average number of read operations per second"},
+			{"utilization.disk.read-time", "average read operation time per second"},
+			{"utilization.disk.write-bytes", "average disk read bytes per second"},
+			{"utilization.disk.write-count", "average number of write operations per second"},
+			{"utilization.disk.write-time", "average number of write operations per second"},
 		},
 	}
 }
@@ -48,13 +48,13 @@ func (d *diskCollector) collectMountedPool(pool *pkg.Pool) error {
 		return errors.Wrapf(err, "failed to get usage of mounted pool '%s'", pool.Path)
 	}
 
-	d.updateAvg("node.pool.mounted", pool.Label, 1)
-	d.updateAvg("node.pool.broken", pool.Label, 0)
+	d.updateAvg("health.pool.mounted", pool.Label, 1)
+	d.updateAvg("health.pool.broken", pool.Label, 0)
 
-	d.updateAvg("node.pool.size", pool.Label, float64(usage.Total))
-	d.updateAvg("node.pool.used", pool.Label, float64(usage.Used))
-	d.updateAvg("node.pool.free", pool.Label, float64(usage.Free))
-	d.updateAvg("node.pool.used-percent", pool.Label, float64(usage.UsedPercent))
+	d.updateAvg("utilization.pool.size", pool.Label, float64(usage.Total))
+	d.updateAvg("utilization.pool.used", pool.Label, float64(usage.Used))
+	d.updateAvg("utilization.pool.free", pool.Label, float64(usage.Free))
+	d.updateAvg("utilization.pool.used-percent", pool.Label, float64(usage.UsedPercent))
 
 	counters, err := disk.IOCounters(pool.Devices...)
 	if err != nil {
@@ -62,13 +62,14 @@ func (d *diskCollector) collectMountedPool(pool *pkg.Pool) error {
 	}
 
 	for disk, counter := range counters {
-		d.updateAvg("node.disk.broken", disk, 0)
-		d.updateDiff("node.disk.read-bytes", disk, float64(counter.ReadBytes))
-		d.updateDiff("node.disk.read-count", disk, float64(counter.ReadCount))
-		d.updateDiff("node.disk.read-time", disk, float64(counter.ReadTime))
-		d.updateDiff("node.disk.write-bytes", disk, float64(counter.ReadBytes))
-		d.updateDiff("node.disk.write-count", disk, float64(counter.ReadCount))
-		d.updateDiff("node.disk.write-time", disk, float64(counter.ReadTime))
+		d.updateAvg("health.disk.broken", disk, 0)
+
+		d.updateDiff("utilization.disk.read-bytes", disk, float64(counter.ReadBytes))
+		d.updateDiff("utilization.disk.read-count", disk, float64(counter.ReadCount))
+		d.updateDiff("utilization.disk.read-time", disk, float64(counter.ReadTime))
+		d.updateDiff("utilization.disk.write-bytes", disk, float64(counter.ReadBytes))
+		d.updateDiff("utilization.disk.write-count", disk, float64(counter.ReadCount))
+		d.updateDiff("utilization.disk.write-time", disk, float64(counter.ReadTime))
 	}
 
 	return nil
@@ -86,18 +87,18 @@ func (d *diskCollector) updateDiff(name, id string, value float64) {
 	}
 }
 func (d *diskCollector) collectUnmountedPool(pool *pkg.Pool) error {
-	d.updateAvg("node.pool.mounted", pool.Label, 0)
-	d.updateAvg("node.pool.broken", pool.Label, 0)
+	d.updateAvg("health.pool.mounted", pool.Label, 0)
+	d.updateAvg("health.pool.broken", pool.Label, 0)
 
 	for _, device := range pool.Devices {
 		disk := filepath.Base(device)
-		d.updateAvg("node.disk.broken", disk, 0)
-		d.updateDiff("node.disk.read-bytes", disk, 0)
-		d.updateDiff("node.disk.read-count", disk, 0)
-		d.updateDiff("node.disk.read-time", disk, 0)
-		d.updateDiff("node.disk.write-bytes", disk, 0)
-		d.updateDiff("node.disk.write-count", disk, 0)
-		d.updateDiff("node.disk.write-time", disk, 0)
+		d.updateAvg("utilization.disk.broken", disk, 0)
+		d.updateDiff("utilization.disk.read-bytes", disk, 0)
+		d.updateDiff("utilization.disk.read-count", disk, 0)
+		d.updateDiff("utilization.disk.read-time", disk, 0)
+		d.updateDiff("utilization.disk.write-bytes", disk, 0)
+		d.updateDiff("utilization.disk.write-count", disk, 0)
+		d.updateDiff("utilization.disk.write-time", disk, 0)
 	}
 
 	return nil
@@ -119,13 +120,13 @@ func (d *diskCollector) collectPools(storage *stubs.StorageModuleStub) {
 
 func (d *diskCollector) collectBrokenPools(storage *stubs.StorageModuleStub) {
 	for _, pool := range storage.BrokenPools() {
-		d.updateAvg("node.pool.mounted", pool.Label, 0)
-		d.updateAvg("node.pool.broken", pool.Label, 1)
+		d.updateAvg("utilization.pool.mounted", pool.Label, 0)
+		d.updateAvg("utilization.pool.broken", pool.Label, 1)
 	}
 
 	for _, device := range storage.BrokenDevices() {
 		disk := filepath.Base(device.Path)
-		d.updateAvg("node.disk.broken", disk, 1)
+		d.updateAvg("utilization.disk.broken", disk, 1)
 	}
 }
 

@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/threefoldtech/zos/pkg/metrics"
 	"github.com/threefoldtech/zos/pkg/metrics/aggregated"
 )
@@ -22,12 +22,12 @@ func NewCPUCollector(storage metrics.Storage) Collector {
 	return &cpuCollector{
 		m: storage,
 		keys: []Metric{
-			{"node.cpu.used-percent", "cpu usage percent"},
-			{"node.cpu.idle", "ideal cpu time per second"},
-			{"node.cpu.iowait", "io-wait cpu time per second"},
-			{"node.cpu.system", "system cpu time per second"},
-			{"node.cpu.irq", "IRQ cpu time per second"},
-			{"node.cpu.user", "user cpu time per second"},
+			{"utilization.cpu.used-percent", "cpu usage percent"},
+			{"utilization.cpu.idle", "percent of ideal cpu time"},
+			{"utilization.cpu.iowait", "percent of io-wait cpu time"},
+			{"utilization.cpu.system", "percent of system cpu time"},
+			{"utilization.cpu.irq", "percent of IRQ cpu time"},
+			{"utilization.cpu.user", "percent of user cpu time"},
 		},
 	}
 }
@@ -39,7 +39,7 @@ func (d *cpuCollector) collectCPUs() error {
 	}
 
 	for index, cpuPercentStat := range cpuUsedPercentStats {
-		d.m.Update("node.cpu.used-percent", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuPercentStat)
+		d.m.Update("utilization.cpu.used-percent", fmt.Sprintf("%d", index), aggregated.AverageMode, cpuPercentStat)
 	}
 
 	cpuTimes, err := cpu.Times(true)
@@ -49,18 +49,18 @@ func (d *cpuCollector) collectCPUs() error {
 
 	for index, cpuTime := range cpuTimes {
 		name := fmt.Sprintf("%d", index)
-
-		d.updateDiff("node.cpu.idle", name, cpuTime.Idle)
-		d.updateDiff("node.cpu.iowait", name, cpuTime.Iowait)
-		d.updateDiff("node.cpu.system", name, cpuTime.System)
-		d.updateDiff("node.cpu.irq", name, cpuTime.Irq)
-		d.updateDiff("node.cpu.user", name, cpuTime.User)
+		d.updateDiff("utilization.cpu.idle", name, cpuTime.Idle*100)
+		d.updateDiff("utilization.cpu.iowait", name, cpuTime.Iowait*100)
+		d.updateDiff("utilization.cpu.system", name, cpuTime.System*100)
+		d.updateDiff("utilization.cpu.irq", name, cpuTime.Irq*100)
+		d.updateDiff("utilization.cpu.user", name, cpuTime.User*100)
 	}
 
 	return nil
 }
 
 func (d *cpuCollector) updateDiff(name, id string, value float64) {
+	log.Debug().Str("metric", name).Str("id", id).Float64("value", value).Msg("reported")
 	if err := d.m.Update(name, id, aggregated.DifferentialMode, value); err != nil {
 		log.Error().Err(err).Str("metric", name).Str("id", id).Msg("failed to update metric")
 	}
