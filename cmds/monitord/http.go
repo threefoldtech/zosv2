@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/threefoldtech/zos/pkg/metrics"
 	"github.com/threefoldtech/zos/pkg/metrics/collectors"
+	"github.com/threefoldtech/zos/pkg/monitord"
 )
 
 func writeHeader(writer *bufio.Writer, metric *collectors.Metric) {
@@ -52,6 +54,26 @@ func createServeMux(storage metrics.Storage, metrics []collectors.Metric) *http.
 				writer.WriteByte('\n')
 			}
 		}
+	})
+
+	server.HandleFunc("/assets", func(w http.ResponseWriter, r *http.Request) {
+		writer := bufio.NewWriter(w)
+		defer writer.Flush()
+
+		assets, err := monitord.GetAssets()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		assetsJSON, err := json.Marshal(assets)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		writer.Write(assetsJSON)
 	})
 
 	return server

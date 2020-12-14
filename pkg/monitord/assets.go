@@ -1,14 +1,14 @@
 package monitord
 
 import (
-	"os"
-	"path/filepath"
+	"context"
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/net"
 	"github.com/threefoldtech/zos/pkg/capacity/dmi"
+	"github.com/threefoldtech/zos/pkg/storage/filesystem"
 )
 
 // NodeAssets is a struct that hold all the node's hardware information
@@ -26,7 +26,8 @@ type diskStat struct {
 	Total  uint64 `json:"total"`
 }
 
-func getAssets() (NodeAssets, error) {
+// GetAssets returns node assets
+func GetAssets() (NodeAssets, error) {
 	nodeAssets := NodeAssets{}
 
 	hostStat, err := host.Info()
@@ -36,21 +37,23 @@ func getAssets() (NodeAssets, error) {
 	nodeAssets.Host = hostStat
 
 	nodeAssets.Drives = make(map[string]*diskStat)
-	err = filepath.Walk("/dev", func(path string, info os.FileInfo, err error) error {
-		diskUsageStat, err := disk.Usage(path)
+
+	deviceManager := filesystem.DefaultDeviceManager(context.Background())
+	devices, err := deviceManager.Devices(context.Background())
+	if err != nil {
+		return nodeAssets, err
+	}
+
+	for _, dev := range devices {
+		diskUsageStat, err := disk.Usage(dev.Path)
 		if err != nil {
-			return err
+			return nodeAssets, err
 		}
-		nodeAssets.Drives[path] = &diskStat{
-			Path:   diskUsageStat.Path,
+		nodeAssets.Drives[dev.Path] = &diskStat{
+			Path:   dev.Path,
 			Fstype: diskUsageStat.Fstype,
 			Total:  diskUsageStat.Total,
 		}
-
-		return nil
-	})
-	if err != nil {
-		return nodeAssets, err
 	}
 
 	cpuStat, err := cpu.Info()
