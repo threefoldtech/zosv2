@@ -15,6 +15,7 @@ This can also be extended easily to add more metrics that is ZOS specific like:
 - Run grafana
   - Download one of many node-exporter [pre-configured grafana dashboards](https://grafana.com/grafana/dashboards/1860)
 
+## NOTICE
 > In case we don't need a listener on ZOS (because that's one of the main zos reasons it's built this way to decrease the attack surface) we can change how node-exporter works to do a PUSH of metrics to local prometheus node instead of polling. Of course then the farmer has to boot the node with the right cmdline arguments. so the node knows where to push the data.
 
 ### UML
