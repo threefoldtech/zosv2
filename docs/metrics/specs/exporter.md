@@ -24,3 +24,16 @@ This can also be extended easily to add more metrics that is ZOS specific like:
 ### Dashboard example
 ![grafana-1](png/grafana-1.png)
 ![grafana-2](png/grafana-2.png)
+
+### Pros and Cons
+#### Pros
+- Very simple solution, many tools already exists that built around the prometheus echo-system including battle tested libraries and very good dashboards.
+- Node does not need to do any aggregation, just simple interface that provides real-time values of system health.
+- Ability to build averages or aggregation over custom periods, and also query historic data.
+- very low memory consumption on the node.
+- Security:
+  - If we implemented the PUSH mechanism (which requires custom farm config) is a bit harder, but it means the node does not provide any listening ports on **ANY** interface
+  - node-exporter has a read-only api
+  - node can filter traffic out except from trusted networks (management or yggrasile interface)
+- It's probably what the farmer wants since it's standard and used by many other systems.
+#### Cons
