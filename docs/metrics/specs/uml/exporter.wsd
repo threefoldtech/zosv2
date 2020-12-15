@@ -8,13 +8,14 @@ package "Farm" {
     m1 - n1
     m2 - n2
 
-    database "Prometheus" {
-        m1 ..> data: poll
-        m2 ..> data: poll
-    }
+    () "Data" as data
+    m1 ..> data: poll
+    m2 ..> data: poll
+    database "Prometheus" as db
+    data -down-> db
 
     folder "Grafana" {
-        data -> [Dashboard]
+        db -> [Dashboard]
     }
 }
 @enduml

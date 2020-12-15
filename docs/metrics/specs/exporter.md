@@ -4,12 +4,12 @@ This document proposes the using of the industrial standard [node-exporter](http
 This can also be extended easily to add more metrics that is ZOS specific like:
 - reservations related metrics (workloads)
 
+We build a small utility (can be part of 3bot farm management) that generates prometheus config from the farm nodes. This config contains basically node-ids and private IP
+
 ### Architecture
 #### Node
 - zos runs node-exporter
- - node exposes the exporter port only on the management (private) IP so only the farmer can access it
-- we build a small utility (can be part of 3bot farm management) that generates prometheus config from the farm nodes
- - config contains basically node-ids and private IP
+  - node exposes the exporter port only on the management (private) IP so only the farmer can access it
 #### Farmer
 - Run prometheus with provided configuration on an ubuntu node
 - Run grafana
@@ -17,13 +17,6 @@ This can also be extended easily to add more metrics that is ZOS specific like:
 
 ## NOTICE
 > In case we don't need a listener on ZOS (because that's one of the main zos reasons it's built this way to decrease the attack surface) we can change how node-exporter works to do a PUSH of metrics to local prometheus node instead of polling. Of course then the farmer has to boot the node with the right cmdline arguments. so the node knows where to push the data.
-
-### UML
-![uml](png/exporter.png)
-
-### Dashboard example
-![grafana-1](png/grafana-1.png)
-![grafana-2](png/grafana-2.png)
 
 ### Pros and Cons
 #### Pros
@@ -37,3 +30,11 @@ This can also be extended easily to add more metrics that is ZOS specific like:
   - node can filter traffic out except from trusted networks (management or yggrasile interface)
 - It's probably what the farmer wants since it's standard and used by many other systems.
 #### Cons
+- Need to expose a listening port on the node
+
+### UML
+![uml](png/exporter.png)
+
+### Dashboard example
+![grafana-1](png/grafana-1.png)
+![grafana-2](png/grafana-2.png)

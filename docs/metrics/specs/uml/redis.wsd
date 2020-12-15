@@ -1,0 +1,27 @@
+@startuml
+
+package "Node" {
+    [Redis] as redis
+    redis -> unix: Listen
+    folder "Container" {
+        [Redis Proxy] as proxy
+    }
+
+    [Collector] as collector
+    collector -> redis
+    proxy -> unix
+}
+
+() "Public" as port
+proxy -> port
+
+package "Puller" {
+    [Puller] as puller
+    port -> puller
+    note top of puller: customize to pull data from redis queus\nand convert it to suitable format for the data store
+    database "Database" as db
+    note top of db: undefined data store
+    puller -> db
+    db -> [Grafana ?]: compatability?
+}
+@enduml
