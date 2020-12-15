@@ -1,0 +1,20 @@
+@startuml
+package "Farm" {
+    () "metrics" as m1
+    () "metrics" as m2
+    [Node 1] as n1
+    [Node 2] as n2
+
+    m1 - n1
+    m2 - n2
+
+    database "Prometheus" {
+        m1 ..> data: poll
+        m2 ..> data: poll
+    }
+
+    folder "Grafana" {
+        data -> [Dashboard]
+    }
+}
+@enduml
