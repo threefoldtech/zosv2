@@ -39,6 +39,7 @@ Build our own collectors that collects all node metrics and do the proper calls 
 - running a container on the system outside the normal reservation flow
 - un-managed memory consumption since if the consumer (puller) did not read the data we will keep all the historic readings (we still can limit on number of samples that we keep in memory)
 - we have implemented only a small subset of the metrics that are provided by node-exporter
+- Need to expose a listening port on the node
 
 ### UML
 ![uml](png/redis.png)

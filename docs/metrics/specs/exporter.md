@@ -30,7 +30,7 @@ We build a small utility (can be part of 3bot farm management) that generates pr
   - node can filter traffic out except from trusted networks (management or yggrasile interface)
 - It's probably what the farmer wants since it's standard and used by many other systems.
 #### Cons
-- Need to expose a listening port on the node
+- Need to expose a listening port on the node (can be avoided by switching to push mechanism)
 
 ### UML
 ![uml](png/exporter.png)
