@@ -46,3 +46,35 @@ Build our own collectors that collects all node metrics and do the proper calls 
 
 ### Dashboard example
 Not defined
+
+### Current list of metrics
+This is the list of metrics we have so far:
+
+- health.pool.mounted: pool is mounted (1) or not mounted (0)
+- health.pool.broken: pool is broken (1) or not broken (0)
+- utilization.pool.size: pool size in bytes
+- utilization.pool.used: pool used space in bytes
+- utilization.pool.free: pool free space in bytes
+- utilization.pool.used-percent: pool usage percent
+- utilization.disk.read-bytes: average disk read bytes per second
+- utilization.disk.read-count: average number of read operations per second
+- utilization.disk.read-time: average read operation time per second
+- utilization.disk.write-bytes: average disk read bytes per second
+- utilization.disk.write-count: average number of write operations per second
+- utilization.disk.write-time: average number of write operations per second
+- utilization.cpu.used-percent: cpu usage percent
+- utilization.cpu.idle: percent of ideal cpu time
+- utilization.cpu.iowait: percent of io-wait cpu time
+- utilization.cpu.system: percent of system cpu time
+- utilization.cpu.irq: percent of IRQ cpu time
+- utilization.cpu.user: percent of user cpu time
+- health.sensor.reading: average percent reported by sensor (value/high) * 100
+- utilization.mem.size: average total memory size in bytes
+- utilization.mem.free: average free memory size in bytes
+- utilization.mem.used: average used memory size in bytes
+- utilization.mem.available: average available memory size in bytes
+- utilization.mem.percent: average memory usage percentage
+
+> Note that metrics are reported per "object" for example there is a bool.size metric for each available pool on the system. [example data](https://gist.github.com/muhamadazmy/968cf5bc10456330ab08cf9d5a38545d)
+
+> Note the example data shows the "current" time slots aggregation (1min, 5min, 1hour, and 1day) not the historic samples.
