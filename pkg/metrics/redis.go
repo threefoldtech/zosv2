@@ -75,7 +75,7 @@ func NewRedisStorage(address string, durations ...time.Duration) (Storage, error
 }
 
 func (r *redisStorage) key(name, id string) string {
-	return fmt.Sprintf("%s:%s", name, id)
+	return fmt.Sprintf("metric:%s:%s", name, id)
 }
 
 func (r *redisStorage) Update(name, id string, mode aggregated.AggregationMode, value float64) error {
@@ -118,7 +118,7 @@ func (r *redisStorage) Update(name, id string, mode aggregated.AggregationMode, 
 
 func (r *redisStorage) get(con redis.Conn, key string) (Metric, error) {
 	parts := strings.Split(key, ":")
-	if len(parts) != 2 {
+	if len(parts) != 3 {
 		return Metric{}, fmt.Errorf("invalid metric key")
 	}
 
@@ -133,13 +133,13 @@ func (r *redisStorage) get(con redis.Conn, key string) (Metric, error) {
 	}
 
 	return Metric{
-		ID:     parts[1],
+		ID:     parts[2],
 		Values: ag.Averages(),
 	}, nil
 }
 
 func (r *redisStorage) Metrics(name string) ([]Metric, error) {
-	match := fmt.Sprintf("%s:*", name)
+	match := fmt.Sprintf("metric:%s:*", name)
 	con := r.pool.Get()
 	defer con.Close()
 

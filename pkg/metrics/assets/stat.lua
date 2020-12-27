@@ -7,7 +7,8 @@ local type = ARGV[1]
 local sample = tonumber(ARGV[2])
 
 local statekey = string.format("metric:%s:%s", key, id)
-local now = os.time()
+local now = redis.call('TIME')[1]
+
 -- local hsetkey = string.format("stats:%s", node)
 local value = {}
 local stat
@@ -37,7 +38,7 @@ else
         h_avg = 0,
         h_max = 0,
         h_total = 0,
-        h_hr = 0,
+        h_nr = 0,
         h_timestamp = h_timestamp,
         h_previous = {
             avg = 0,
