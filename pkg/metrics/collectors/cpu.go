@@ -12,7 +12,7 @@ import (
 
 // CPUCollector type
 type cpuCollector struct {
-	m metrics.CPU
+	m metrics.Storage
 
 	keys []Metric
 }
