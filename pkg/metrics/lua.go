@@ -3,6 +3,7 @@ package metrics
 import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/threefoldtech/zos/pkg/metrics/aggregated"
 	"github.com/threefoldtech/zos/pkg/metrics/generated"
 )
@@ -42,6 +43,7 @@ func (l *luaStorage) Update(name, id string, mode aggregated.AggregationMode, va
 		m = "D"
 	}
 
+	log.Debug().Str("key", name).Str("id", id).Float64("value", value).Msg("reporting")
 	_, err := con.Do("EVALSHA", l.hash, 2, name, id, m, value)
 
 	return err

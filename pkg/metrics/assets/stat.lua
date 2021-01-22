@@ -55,6 +55,9 @@ if differential then
     if not stored then
         -- no previous value
         value.last = sample
+
+        local data = cjson.encode(value)
+        redis.call('SET', statekey, data)
         return
     end
 

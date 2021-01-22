@@ -1,57 +1,52 @@
-package main
+package monitord
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/rs/zerolog"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/threefoldtech/zbus"
 	"github.com/threefoldtech/zos/pkg/metrics"
-	"github.com/threefoldtech/zos/pkg/metrics/aggregated"
 	"github.com/threefoldtech/zos/pkg/metrics/collectors"
-	"github.com/threefoldtech/zos/pkg/version"
+	"github.com/urfave/cli/v2"
 )
 
-func main() {
+// Module is entry point for module
+var Module cli.Command = cli.Command{
+	Name:  "monitord",
+	Usage: "start metrics aggregation",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "broker",
+			Usage: "connection string to the message `BROKER`",
+			Value: "unix:///var/run/redis.sock",
+		},
+		&cli.BoolFlag{
+			Name:  "dump",
+			Usage: "dumps current metrics and exit",
+		},
+	},
+	Action: action,
+}
+
+func action(cli *cli.Context) error {
 	var (
-		msgBrokerCon string
-		debug        bool
-		ver          bool
-		dump         bool
+		msgBrokerCon string = cli.String("broker")
+		dump         bool   = cli.Bool("dump")
 	)
-
-	flag.StringVar(&msgBrokerCon, "broker", "unix:///var/run/redis.sock", "connection string to the message broker")
-	flag.BoolVar(&debug, "debug", false, "enable debug logging")
-	flag.BoolVar(&dump, "dump", false, "dump collected metrics and exit")
-	flag.BoolVar(&ver, "v", false, "show version and exit")
-
-	flag.Parse()
-	if ver {
-		version.ShowAndExit(false)
-	}
-
-	// Default level for this example is info, unless debug flag is present
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	if debug {
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	}
 
 	cl, err := zbus.NewRedisClient(msgBrokerCon)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to connect to redis")
+		return errors.Wrap(err, "failed to connect to redis")
 	}
 
-	storage, err := metrics.NewRedisStorage(msgBrokerCon, 1*time.Minute, 5*time.Minute, time.Hour, 24*time.Hour)
+	//storage, err := metrics.NewRedisStorage(msgBrokerCon, 1*time.Minute, 5*time.Minute, time.Hour, 24*time.Hour)
+	storage, err := metrics.NewLuaStorage(msgBrokerCon)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to connect to redis")
-	}
-
-	if err := storage.Update("disk.size", "sda", aggregated.AverageMode, 38); err != nil {
-		log.Error().Err(err).Msg("failed to set value")
+		return errors.Wrap(err, "failed to connect to redis")
 	}
 
 	modules := []collectors.Collector{
@@ -62,7 +57,6 @@ func main() {
 	}
 
 	if dump {
-
 		for _, collector := range modules {
 			for _, key := range collector.Metrics() {
 				values, err := storage.Metrics(key.Name)
@@ -105,6 +99,8 @@ func main() {
 	}
 
 	if err := server.ListenAndServe(); err != nil {
-		log.Fatal().Err(err).Msg("failed to serve metrics")
+		return errors.Wrap(err, "failed to serve metrics")
 	}
+
+	return nil
 }

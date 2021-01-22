@@ -9,6 +9,7 @@ import (
 	"github.com/threefoldtech/zos/cmds/modules/capacityd"
 	"github.com/threefoldtech/zos/cmds/modules/contd"
 	"github.com/threefoldtech/zos/cmds/modules/flistd"
+	"github.com/threefoldtech/zos/cmds/modules/monitord"
 	"github.com/threefoldtech/zos/cmds/modules/networkd"
 	"github.com/threefoldtech/zos/cmds/modules/provisiond"
 	"github.com/threefoldtech/zos/cmds/modules/storaged"
@@ -42,6 +43,7 @@ func main() {
 			&capacityd.Module,
 			&networkd.Module,
 			&provisiond.Module,
+			&monitord.Module,
 			&zbusdebug.Module,
 		},
 		Action: func(c *cli.Context) error {
