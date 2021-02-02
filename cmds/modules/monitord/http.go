@@ -3,7 +3,6 @@ package monitord
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/threefoldtech/zos/pkg/metrics"
@@ -49,7 +48,7 @@ func createServeMux(storage metrics.Storage, metrics []collectors.Metric) *http.
 				writer.WriteString(value.ID)
 				for _, v := range value.Values {
 					writer.WriteRune(' ')
-					writer.WriteString(fmt.Sprintf("%f", v))
+					writer.WriteString(v.String())
 				}
 				writer.WriteByte('\n')
 			}

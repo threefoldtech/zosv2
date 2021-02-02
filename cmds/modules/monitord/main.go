@@ -64,8 +64,12 @@ func action(cli *cli.Context) error {
 					log.Error().Err(err).Str("id", key.Name).Msg("failed to get metric")
 				}
 				fmt.Printf("- %s (%s)\n", key.Name, key.Descritpion)
-				for _, value := range values {
-					fmt.Printf("  - %s: %+v\n", value.ID, value.Values)
+				for _, metric := range values {
+					fmt.Printf("  - %s: ", metric.ID) //%+v\n", value.ID, value.Values)
+					for _, value := range metric.Values {
+						fmt.Printf("%s ", value.String())
+					}
+					fmt.Println()
 				}
 			}
 		}

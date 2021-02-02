@@ -7,15 +7,15 @@ local type = ARGV[1]
 local sample = tonumber(ARGV[2])
 
 local statekey = string.format("metric:%s:%s", key, id)
-local now = redis.call('TIME')[1]
+local now = redis.call('TIME')[1] + 0 --quick way to convert to number
 
 -- local hsetkey = string.format("stats:%s", node)
 local value = {}
 local stat
 local stored = redis.call('GET', statekey)
 
-local m_timestamp = (math.floor(now / 300) * 300) + 300
-local h_timestamp = (math.floor(now / 3600) * 3600) + 3600
+local m_timestamp = (math.floor(now / 300) * 300)
+local h_timestamp = (math.floor(now / 3600) * 3600)
 
 local differential = type == "D"
 

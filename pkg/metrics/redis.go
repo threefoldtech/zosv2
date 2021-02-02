@@ -132,9 +132,19 @@ func (r *redisStorage) get(con redis.Conn, key string) (Metric, error) {
 		return Metric{}, errors.Wrap(err, "failed to load metric from redis")
 	}
 
+	samples := ag.CurrentSamples()
+	values := make([]Average, 0, len(samples))
+	for _, sample := range samples {
+		values = append(values, Average{
+			Width:     sample.Duration,
+			Timestamp: sample.Timestamp,
+			Value:     sample.Average(),
+		})
+	}
+
 	return Metric{
 		ID:     parts[2],
-		Values: ag.Averages(),
+		Values: values,
 	}, nil
 }
 

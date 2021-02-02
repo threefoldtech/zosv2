@@ -11,9 +11,9 @@ func TestAggregatedDurationInitial(t *testing.T) {
 	require := require.New(t)
 	value := NewAggregatedMetric(AverageMode, time.Minute, 5*time.Minute)
 
-	averages := value.Averages()
+	averages := value.CurrentSamples()
 	require.Len(averages, 2)
-	require.Equal([]float64{0, 0}, averages)
+	require.Equal([]float64{0, 0}, Averages(averages))
 }
 
 func TestAggregatedDurationAvg(t *testing.T) {
@@ -61,7 +61,7 @@ func TestAggregatedDurationAvg(t *testing.T) {
 			aggregated.sample(start.Add(in.offset), in.value)
 		}
 
-		require.Equal(testSample.expected, aggregated.Averages())
+		require.Equal(testSample.expected, Averages(aggregated.CurrentSamples()))
 	}
 }
 
@@ -110,6 +110,6 @@ func TestAggregatedDurationDif(t *testing.T) {
 			aggregated.sample(start.Add(in.offset), in.value)
 		}
 
-		require.Equal(testSample.expected, aggregated.Averages())
+		require.Equal(testSample.expected, Averages(aggregated.CurrentSamples()))
 	}
 }

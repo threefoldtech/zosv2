@@ -81,15 +81,24 @@ func (a *Aggregated) Sample(value float64) {
 	a.sample(time.Now(), value)
 }
 
-// Averages return the averages per configured duration
-func (a *Aggregated) Averages() []float64 {
+// CurrentSamples return a copy of the current samples
+func (a *Aggregated) CurrentSamples() []Sample {
 	a.m.RLock()
 	defer a.m.RUnlock()
 
-	v := make([]float64, len(a.Durations))
+	v := make([]Sample, len(a.Samples))
 	for i, sample := range a.Samples {
-		v[i] = sample.Average()
+		v[i] = *sample
 	}
 
 	return v
+}
+
+func Averages(samples []Sample) []float64 {
+	values := make([]float64, 0, cap(samples))
+	for i := range samples {
+		values[i] = samples[i].Average()
+	}
+
+	return values
 }
