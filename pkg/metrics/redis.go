@@ -78,9 +78,9 @@ func (r *redisStorage) key(name, id string) string {
 	return fmt.Sprintf("metric:%s:%s", name, id)
 }
 
-func (r *redisStorage) Update(name, id string, mode aggregated.AggregationMode, value float64) error {
+func (r *redisStorage) Update(name, id string, mode aggregated.AggregationMode, value float64) (float64, error) {
 	if strings.Contains(name, ":") || strings.Contains(id, ":") {
-		return fmt.Errorf("unicode ':' is reserved")
+		return 0, fmt.Errorf("unicode ':' is reserved")
 	}
 
 	key := r.key(name, id)
@@ -92,28 +92,28 @@ func (r *redisStorage) Update(name, id string, mode aggregated.AggregationMode, 
 	if err == redis.ErrNil {
 		ag = aggregated.NewAggregatedMetric(mode, r.durations...)
 	} else if err != nil {
-		return errors.Wrap(err, "failed to retrieve metric from redis")
+		return 0, errors.Wrap(err, "failed to retrieve metric from redis")
 	} else {
 		if err := json.Unmarshal(data, &ag); err != nil {
-			return errors.Wrap(err, "failed to load metric from redis")
+			return 0, errors.Wrap(err, "failed to load metric from redis")
 		}
 	}
 
 	if ag.Mode != mode {
-		return fmt.Errorf("unexpected aggregation mode '%d' for metric '%s' expected '%d'", mode, name, ag.Mode)
+		return 0, fmt.Errorf("unexpected aggregation mode '%d' for metric '%s' expected '%d'", mode, name, ag.Mode)
 	}
 
-	ag.Sample(value)
+	avg := ag.Sample(value)
 	data, err = json.Marshal(&ag)
 	if err != nil {
-		return errors.Wrap(err, "failed to serialize metric")
+		return 0, errors.Wrap(err, "failed to serialize metric")
 	}
 
 	if _, err := con.Do("SET", key, data); err != nil {
-		return errors.Wrap(err, "failed to serialize metric")
+		return 0, errors.Wrap(err, "failed to serialize metric")
 	}
 
-	return nil
+	return avg, nil
 }
 
 func (r *redisStorage) get(con redis.Conn, key string) (Metric, error) {

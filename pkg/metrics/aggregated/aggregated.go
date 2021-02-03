@@ -37,7 +37,7 @@ func NewAggregatedMetric(mode AggregationMode, durations ...time.Duration) Aggre
 	return Aggregated{Mode: mode, Durations: durations}
 }
 
-func (a *Aggregated) sample(t time.Time, value float64) {
+func (a *Aggregated) sample(t time.Time, value float64) float64 {
 	a.m.Lock()
 	defer a.m.Unlock()
 
@@ -55,7 +55,7 @@ func (a *Aggregated) sample(t time.Time, value float64) {
 		// probably first update, so we keep track
 		// only of last value.
 		if last == 0 {
-			return
+			return 0
 		}
 		// otherwise the value is the difference (increase)
 		seconds := float64(a.LastUpdate.Sub(lastUpdate)) / float64(time.Second)
@@ -63,8 +63,9 @@ func (a *Aggregated) sample(t time.Time, value float64) {
 	}
 
 	// update all samples
+	var avg float64
 	for i, s := range a.Samples {
-		err := s.Sample(t, value)
+		sampleAvg, err := s.Sample(t, value)
 		if err == ErrValueIsAfterPeriod {
 			// sample period has passed, so we need to
 			// create a new sample.
@@ -72,13 +73,21 @@ func (a *Aggregated) sample(t time.Time, value float64) {
 			s = NewAlignedSample(t, s.Width())
 			s.Sample(t, value)
 			a.Samples[i] = s
+			avg = value
+		}
+
+		// we only return the avg of the first defined sample
+		if i == 0 {
+			avg = sampleAvg
 		}
 	}
+
+	return avg
 }
 
 // Sample update the aggregated value with given values
-func (a *Aggregated) Sample(value float64) {
-	a.sample(time.Now(), value)
+func (a *Aggregated) Sample(value float64) float64 {
+	return a.sample(time.Now(), value)
 }
 
 // CurrentSamples return a copy of the current samples
@@ -94,6 +103,7 @@ func (a *Aggregated) CurrentSamples() []Sample {
 	return v
 }
 
+// Averages extract averages from given samples
 func Averages(samples []Sample) []float64 {
 	values := make([]float64, 0, cap(samples))
 	for i := range samples {

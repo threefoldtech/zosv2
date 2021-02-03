@@ -8,9 +8,12 @@ import (
 
 // Average is an average value over a specific period of time
 type Average struct {
-	Width     int64
+	// Width of the period in seconds
+	Width int64
+	// Timestamp of the period
 	Timestamp int64
-	Value     float64
+	// Value is the average value over the period [timestamp, timestamp+width]
+	Value float64
 }
 
 func (a *Average) String() string {
@@ -26,6 +29,10 @@ type Metric struct {
 
 // Storage interface
 type Storage interface {
-	Update(name, id string, mode aggregated.AggregationMode, value float64) error
+	// Update updates the internal value associated with this metric key, it then
+	// returns the calculated average for the current period.
+	// the period itself is defined by the underlying implementations.
+	Update(name, id string, mode aggregated.AggregationMode, value float64) (float64, error)
+	// Metrics returns the values of the given metric name
 	Metrics(name string) ([]Metric, error)
 }

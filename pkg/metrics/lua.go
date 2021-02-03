@@ -3,6 +3,7 @@ package metrics
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/garyburd/redigo/redis"
@@ -69,7 +70,7 @@ func NewLuaStorage(address string) (Storage, error) {
 	}, nil
 }
 
-func (l *luaStorage) Update(name, id string, mode aggregated.AggregationMode, value float64) error {
+func (l *luaStorage) Update(name, id string, mode aggregated.AggregationMode, value float64) (float64, error) {
 	con := l.pool.Get()
 	defer con.Close()
 	m := "A"
@@ -78,9 +79,12 @@ func (l *luaStorage) Update(name, id string, mode aggregated.AggregationMode, va
 	}
 
 	log.Debug().Str("key", name).Str("id", id).Float64("value", value).Msg("reporting")
-	_, err := con.Do("EVALSHA", l.hash, 2, name, id, m, value)
+	str, err := redis.String(con.Do("EVALSHA", l.hash, 2, name, id, m, value))
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to update stored metrics")
+	}
 
-	return err
+	return strconv.ParseFloat(str, 64)
 }
 
 func (l *luaStorage) get(con redis.Conn, key string) (Metric, error) {

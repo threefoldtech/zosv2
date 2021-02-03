@@ -47,7 +47,7 @@ func (m *memCollector) Collect() error {
 }
 
 func (m *memCollector) update(key string, value float64) {
-	if err := m.m.Update(key, "mem", aggregated.AverageMode, value); err != nil {
+	if _, err := m.m.Update(key, "mem", aggregated.AverageMode, value); err != nil {
 		log.Error().Err(err).Str("metric", key).Msg("failed to update metric")
 	}
 }

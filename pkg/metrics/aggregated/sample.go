@@ -50,14 +50,14 @@ func (s *Sample) Width() time.Duration {
 }
 
 // Sample update this sample with given value at given time
-func (s *Sample) Sample(t time.Time, v float64) error {
+func (s *Sample) Sample(t time.Time, v float64) (float64, error) {
 	aligned := (t.Unix() / s.Duration) * s.Duration
 	if aligned > s.Timestamp {
 		// this sample happened after this period is over
-		return ErrValueIsAfterPeriod
+		return 0, ErrValueIsAfterPeriod
 	} else if aligned < s.Timestamp {
 		// this sample happened before the period has started
-		return ErrValueIsBeforePeriod
+		return 0, ErrValueIsBeforePeriod
 	}
 
 	if v > s.Max {
@@ -67,7 +67,7 @@ func (s *Sample) Sample(t time.Time, v float64) error {
 	s.Count++
 	s.Total += v
 	s.Last = v
-	return nil
+	return s.Average(), nil
 }
 
 // Average returns the average value

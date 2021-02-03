@@ -13,6 +13,11 @@ import (
 	"github.com/threefoldtech/zos/pkg/stubs"
 )
 
+const (
+	//MB megabyte
+	MB = 1024 * 1024
+)
+
 type diskCollector struct {
 	cl zbus.Client
 	m  metrics.Storage
@@ -38,6 +43,12 @@ func NewDiskCollector(cl zbus.Client, storage metrics.Storage) Collector {
 			{"utilization.disk.write-bytes", "average disk read bytes per second"},
 			{"utilization.disk.write-count", "average number of write operations per second"},
 			{"utilization.disk.write-time", "average number of write operations per second"},
+			//feedback metrics
+			// the following metrics are computed based on the average calculated by the above metrics
+			{"utilization.disk.read-bytes.percent", "percent of the average read bytes over 100MB"},
+			{"utilization.disk.read-count.percent", "percent of the average read bytes over 100MB"},
+			{"utilization.disk.write-bytes.percent", "percent of the average read bytes over 100MB"},
+			{"utilization.disk.write-count.percent", "percent of the average read bytes over 100MB"},
 		},
 	}
 }
@@ -64,27 +75,41 @@ func (d *diskCollector) collectMountedPool(pool *pkg.Pool) error {
 	for disk, counter := range counters {
 		d.updateAvg("health.disk.broken", disk, 0)
 
-		d.updateDiff("utilization.disk.read-bytes", disk, float64(counter.ReadBytes))
-		d.updateDiff("utilization.disk.read-count", disk, float64(counter.ReadCount))
 		d.updateDiff("utilization.disk.read-time", disk, float64(counter.ReadTime))
-		d.updateDiff("utilization.disk.write-bytes", disk, float64(counter.ReadBytes))
-		d.updateDiff("utilization.disk.write-count", disk, float64(counter.ReadCount))
-		d.updateDiff("utilization.disk.write-time", disk, float64(counter.ReadTime))
+		rb := d.updateDiff("utilization.disk.read-bytes", disk, float64(counter.ReadBytes))
+		rc := d.updateDiff("utilization.disk.read-count", disk, float64(counter.ReadCount))
+		d.updateDiff("utilization.disk.write-time", disk, float64(counter.WriteTime))
+		wb := d.updateDiff("utilization.disk.write-bytes", disk, float64(counter.WriteBytes))
+		wc := d.updateDiff("utilization.disk.write-count", disk, float64(counter.WriteCount))
+
+		// Feedback metrics
+		// this should have the same value as above, but we need to calculate percent
+		// of disk max read MBs
+		d.updateAvg("utilization.disk.read-bytes.percent", disk, rb)
+		// TODO: iops percent should be different based on teh disk type.
+		d.updateAvg("utilization.disk.read-count.percent", disk, rc)
+		d.updateAvg("utilization.disk.write-bytes.percent", disk, wb)
+		// TODO: iops percent should be different based on teh disk type.
+		d.updateAvg("utilization.disk.write-count.percent", disk, wc)
 	}
 
 	return nil
 }
 
-func (d *diskCollector) updateAvg(name, id string, value float64) {
-	if err := d.m.Update(name, id, aggregated.AverageMode, value); err != nil {
+func (d *diskCollector) updateAvg(name, id string, value float64) float64 {
+	value, err := d.m.Update(name, id, aggregated.AverageMode, value)
+	if err != nil {
 		log.Error().Err(err).Str("metric", name).Str("id", id).Msg("failed to update metric")
 	}
+	return value
 }
 
-func (d *diskCollector) updateDiff(name, id string, value float64) {
-	if err := d.m.Update(name, id, aggregated.DifferentialMode, value); err != nil {
+func (d *diskCollector) updateDiff(name, id string, value float64) float64 {
+	value, err := d.m.Update(name, id, aggregated.DifferentialMode, value)
+	if err != nil {
 		log.Error().Err(err).Str("metric", name).Str("id", id).Msg("failed to update metric")
 	}
+	return value
 }
 func (d *diskCollector) collectUnmountedPool(pool *pkg.Pool) error {
 	d.updateAvg("health.pool.mounted", pool.Label, 0)
@@ -94,10 +119,14 @@ func (d *diskCollector) collectUnmountedPool(pool *pkg.Pool) error {
 		disk := filepath.Base(device)
 		d.updateAvg("utilization.disk.broken", disk, 0)
 		d.updateDiff("utilization.disk.read-bytes", disk, 0)
+		d.updateDiff("utilization.disk.read-bytes.percent", disk, 0)
 		d.updateDiff("utilization.disk.read-count", disk, 0)
+		d.updateDiff("utilization.disk.read-count.percent", disk, 0)
 		d.updateDiff("utilization.disk.read-time", disk, 0)
 		d.updateDiff("utilization.disk.write-bytes", disk, 0)
+		d.updateDiff("utilization.disk.write-bytes.percent", disk, 0)
 		d.updateDiff("utilization.disk.write-count", disk, 0)
+		d.updateDiff("utilization.disk.write-count.percent", disk, 0)
 		d.updateDiff("utilization.disk.write-time", disk, 0)
 	}
 

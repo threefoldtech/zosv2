@@ -60,7 +60,7 @@ func (d *cpuCollector) collectCPUs() error {
 }
 
 func (d *cpuCollector) updateDiff(name, id string, value float64) {
-	if err := d.m.Update(name, id, aggregated.DifferentialMode, value); err != nil {
+	if _, err := d.m.Update(name, id, aggregated.DifferentialMode, value); err != nil {
 		log.Error().Err(err).Str("metric", name).Str("id", id).Msg("failed to update metric")
 	}
 }

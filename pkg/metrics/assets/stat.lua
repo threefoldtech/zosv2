@@ -58,13 +58,13 @@ if differential then
 
         local data = cjson.encode(value)
         redis.call('SET', statekey, data)
-        return
+        return "0"
     end
 
     local diff = sample - last
     if now == value.last_update then
         -- what should we do here?
-        return
+        return "0"
     end
     input_sample = diff / (now - value.last_update)
     value.last = sample
@@ -124,3 +124,5 @@ value.h_avg = value.h_total / value.h_nr
 local data = cjson.encode(value)
 redis.call('SET', statekey, data)
 redis.call('EXPIRE', statekey, 24*60*60) -- expire in a day
+
+return tostring(value.m_avg)
