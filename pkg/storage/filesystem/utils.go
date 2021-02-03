@@ -3,6 +3,7 @@ package filesystem
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/rs/zerolog/log"
 )
 
 func getMountTarget(f io.Reader, device string) (string, bool) {
@@ -109,4 +112,24 @@ func run(ctx context.Context, name string, args ...string) ([]byte, error) {
 	}
 
 	return output, nil
+}
+
+// Seektime uses the seektime binary to try and determine the type of a disk
+// This function returns the type of the device, as reported by seektime,
+// and the elapsed time in microseconds (also reported by seektime)
+func Seektime(ctx context.Context, path string) (string, uint64, error) {
+	bytes, err := run(ctx, "seektime", "-j", path)
+	if err != nil {
+		return "", 0, err
+	}
+
+	var seekTime struct {
+		Typ  string `json:"type"`
+		Time uint64 `json:"elapsed"`
+	}
+
+	err = json.Unmarshal(bytes, &seekTime)
+	log.Debug().Str("disk", path).Str("type", seekTime.Typ).Uint64("time", seekTime.Time).Msg("seektime")
+
+	return seekTime.Typ, seekTime.Time, err
 }

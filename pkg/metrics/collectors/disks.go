@@ -1,7 +1,9 @@
 package collectors
 
 import (
+	"context"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -10,19 +12,34 @@ import (
 	"github.com/threefoldtech/zos/pkg"
 	"github.com/threefoldtech/zos/pkg/metrics"
 	"github.com/threefoldtech/zos/pkg/metrics/aggregated"
+	"github.com/threefoldtech/zos/pkg/storage/filesystem"
 	"github.com/threefoldtech/zos/pkg/stubs"
 )
 
 const (
 	//MB megabyte
 	MB = 1024 * 1024
+
+	//TypeHDD hdd type
+	TypeHDD DiskType = iota
+	//TypeSSD ssd type
+	TypeSSD
 )
+
+var (
+	factors = map[DiskType]string{}
+)
+
+// DiskType type
+type DiskType int
 
 type diskCollector struct {
 	cl zbus.Client
 	m  metrics.Storage
 
 	keys []Metric
+
+	types map[string]DiskType
 }
 
 // NewDiskCollector created a disk collector
@@ -51,6 +68,31 @@ func NewDiskCollector(cl zbus.Client, storage metrics.Storage) Collector {
 			{"utilization.disk.write-count.percent", "percent of the average read bytes over 100MB"},
 		},
 	}
+}
+
+func (d *diskCollector) detectType(disk string) DiskType {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if typ, ok := d.types[disk]; ok {
+		return typ
+	}
+	t, _, err := filesystem.Seektime(ctx, filepath.Join("/dev", disk))
+	if err != nil {
+		log.Error().Err(err).Str("disk", disk).Msg("failed to detect disk type")
+		return TypeHDD
+	}
+
+	var typ DiskType
+	switch t {
+	case "SSD":
+		typ = TypeSSD
+	default:
+		typ = TypeHDD
+	}
+
+	d.types[disk] = typ
+	return typ
 }
 
 func (d *diskCollector) collectMountedPool(pool *pkg.Pool) error {
@@ -85,6 +127,8 @@ func (d *diskCollector) collectMountedPool(pool *pkg.Pool) error {
 		// Feedback metrics
 		// this should have the same value as above, but we need to calculate percent
 		// of disk max read MBs
+		//typ := d.detectType(disk)
+		// factor
 		d.updateAvg("utilization.disk.read-bytes.percent", disk, rb)
 		// TODO: iops percent should be different based on teh disk type.
 		d.updateAvg("utilization.disk.read-count.percent", disk, rc)
