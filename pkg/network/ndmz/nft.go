@@ -42,12 +42,14 @@ table inet filter {
     # early drop of invalid connections
     ct state invalid drop
   }
-  
+
   chain input {
     type filter hook input priority 0; policy accept;
     jump base_checks
     ip6 daddr ff02::/64 accept
     tcp dport { {{.YggPorts}} } accept
+    # port 9100 needed for monitoring API
+    tcp dport 9100 accept
     ip6 nexthdr icmpv6 accept
     iifname "npub6" counter drop
     iifname "npub4" counter drop
