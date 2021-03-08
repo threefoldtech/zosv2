@@ -100,9 +100,11 @@ func MustMarshal(data WorkloadData) json.RawMessage {
 type Workload struct {
 	//Version is version of reservation object
 	Version int `json:"version"`
-	// ID of the reservation
+	//Name is unique workload name per deployment
+	Name string `json:"name"`
+	// ID of the reservation (deprecated)
 	ID ID `json:"id"`
-	// Identification of the user requesting the reservation
+	// Identification of the user requesting the reservation (deprecated)
 	User ID `json:"user_id"`
 	// Type of the reservation (container, zdb, vm, etc...)
 	Type WorkloadType `json:"type"`
@@ -110,7 +112,7 @@ type Workload struct {
 	Data json.RawMessage `json:"data"`
 	// Date of creation
 	Created Timestamp `json:"created"`
-	//ToDelete is set if the user/farmer asked the reservation to be deleted
+	//ToDelete is set if the user/farmer asked the reservation to be deleted (deprecated)
 	ToDelete bool `json:"to_delete"`
 	// Metadata is custom user metadata
 	Metadata string `json:"metadata"`
