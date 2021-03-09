@@ -45,12 +45,13 @@ func WithStartupOrder(t ...gridtypes.WorkloadType) EngineOption {
 }
 
 type provisionJob struct {
-	wl gridtypes.Workload
+	wl gridtypes.Deployment
 	ch chan error
 }
 
 type deprovisionJob struct {
-	id     gridtypes.ID
+	twin   uint32
+	id     uint32
 	ch     chan error
 	reason string
 }
@@ -178,9 +179,9 @@ func (e *NativeEngine) Admins() Users {
 }
 
 // Provision workload
-func (e *NativeEngine) Provision(ctx context.Context, wl gridtypes.Workload) error {
+func (e *NativeEngine) Provision(ctx context.Context, deployment gridtypes.Deployment) error {
 	j := provisionJob{
-		wl: wl,
+		wl: deployment,
 		ch: make(chan error),
 	}
 
@@ -195,8 +196,9 @@ func (e *NativeEngine) Provision(ctx context.Context, wl gridtypes.Workload) err
 }
 
 // Deprovision workload
-func (e *NativeEngine) Deprovision(ctx context.Context, id gridtypes.ID, reason string) error {
+func (e *NativeEngine) Deprovision(ctx context.Context, twin, id uint32, reason string) error {
 	j := deprovisionJob{
+		twin:   twin,
 		id:     id,
 		ch:     make(chan error),
 		reason: reason,
@@ -229,38 +231,38 @@ func (e *NativeEngine) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case job := <-e.deprovision:
-			wl, err := e.storage.Get(job.id)
-			if err != nil {
-				job.ch <- err
-				log.Error().Err(err).Stringer("id", job.id).Msg("failed to get workload from storage")
-				continue
-			}
-			wl.ToDelete = true
-			err = e.storage.Set(wl)
-			job.ch <- err
-			if err != nil {
-				log.Error().Err(err).Stringer("id", job.id).Msg("failed to mark workload at to be delete")
-				continue
-			}
+		case _ = <-e.deprovision:
+			//TODO: deprovision entire deployment
 
-			e.uninstall(ctx, wl, job.reason)
+			// wl, err := e.storage.Get(job.twin, job.id)
+			// if err != nil {
+			// 	job.ch <- err
+			// 	log.Error().Err(err).Uint32("twin", wl.TwinID).Uint32("id", job.id).Msg("failed to get workload from storage")
+			// 	continue
+			// }
+			// //wl.ToDelete = true
+			// err = e.storage.Set(wl)
+			// job.ch <- err
+			// if err != nil {
+			// 	log.Error().Err(err).Stringer("id", job.id).Msg("failed to mark workload at to be delete")
+			// 	continue
+			// }
+
+			// e.uninstall(ctx, wl, job.reason)
 		case job := <-e.provision:
-			job.wl.Created = gridtypes.Timestamp(time.Now().Unix())
-			job.wl.ToDelete = false
-			job.wl.Result.State = gridtypes.StateAccepted
-			job.wl.Result.Created = gridtypes.Timestamp(time.Now().Unix())
+			deployment := job.wl
 
-			err := e.storage.Add(job.wl)
+			//TODO: check for migration (from older version to new)
+			err := e.storage.Add(deployment)
 			// release the job. the caller will now know that the workload
 			// has been committed to storage (or not)
 			job.ch <- err
 			if err != nil {
-				log.Error().Err(err).Stringer("id", job.wl.ID).Msg("failed to commit workload to storage")
+				log.Error().Err(err).Uint32("twin", job.wl.TwinID).Uint32("id", job.wl.DeploymentID).Msg("failed to commit deployment to storage")
 				continue
 			}
 
-			e.install(ctx, job.wl)
+			e.install(ctx, deployment)
 		}
 	}
 }
@@ -320,27 +322,33 @@ func (e *NativeEngine) uninstall(ctx context.Context, wl gridtypes.Workload, rea
 	}
 }
 
-func (e *NativeEngine) install(ctx context.Context, wl gridtypes.Workload) {
-	log := log.With().Str("id", string(wl.ID)).Str("type", string(wl.Type)).Logger()
+func (e *NativeEngine) install(ctx context.Context, deployment gridtypes.Deployment) {
+	log := log.With().Uint32("twin", deployment.TwinID).Uint32("id", deployment.DeploymentID).Logger()
 
-	log.Debug().Msg("provisioning")
-	result, err := e.provisioner.Provision(ctx, &wl)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to deploy workload")
-		result = &gridtypes.Result{
-			Error: err.Error(),
-			State: gridtypes.StateError,
+	for i := range deployment.Workloads {
+		wl := &deployment.Workloads[i]
+		log := log.With().Str("type", wl.Type.String()).Str("name", wl.Name).Logger()
+		log.Debug().Msg("provisioning")
+
+		result, err := e.provisioner.Provision(ctx, wl)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to deploy workload")
+			result = &gridtypes.Result{
+				Error: err.Error(),
+				State: gridtypes.StateError,
+			}
 		}
-	}
 
-	if result.State == gridtypes.StateError {
-		log.Error().Stringer("type", wl.Type).Str("error", result.Error).Msg("failed to deploy workload")
-	}
-	result.Created = gridtypes.Timestamp(time.Now().Unix())
-	wl.Result = *result
+		if result.State == gridtypes.StateError {
+			log.Error().Str("error", result.Error).Msg("failed to deploy workload")
+		}
 
-	if err := e.storage.Set(wl); err != nil {
-		log.Error().Err(err).Msg("failed to set workload result")
+		result.Created = gridtypes.Timestamp(time.Now().Unix())
+		wl.Result = *result
+
+		if err := e.storage.Set(deployment); err != nil {
+			log.Error().Err(err).Msg("failed to set workload result")
+		}
 	}
 }
 
@@ -363,8 +371,9 @@ func (e *NativeEngine) Counters(ctx context.Context) <-chan pkg.ProvisionCounter
 
 // DecommissionCached implements the zbus interface
 func (e *NativeEngine) DecommissionCached(id string, reason string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
+	panic("not implemented")
 
-	return e.Deprovision(ctx, gridtypes.ID(id), reason)
+	// ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	// defer cancel()
+	//return e.Deprovision(ctx, gridtypes.ID(id), reason)
 }

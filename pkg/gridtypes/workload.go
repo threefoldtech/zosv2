@@ -79,9 +79,15 @@ func (c *Capacity) Add(o *Capacity) {
 	c.IPV4U += o.IPV4U
 }
 
+// WorkloadGetter is used to get a workload by name inside
+// the deployment context. Mainly used to validate dependency
+type WorkloadGetter interface {
+	Get(name string) (*Workload, error)
+}
+
 // WorkloadData interface
 type WorkloadData interface {
-	Valid() error
+	Valid(getter WorkloadGetter) error
 	Challenge(io.Writer) error
 	Capacity() (Capacity, error)
 }
@@ -112,8 +118,6 @@ type Workload struct {
 	Data json.RawMessage `json:"data"`
 	// Date of creation
 	Created Timestamp `json:"created"`
-	//ToDelete is set if the user/farmer asked the reservation to be deleted (deprecated)
-	ToDelete bool `json:"to_delete"`
 	// Metadata is custom user metadata
 	Metadata string `json:"metadata"`
 	//Description
@@ -143,7 +147,11 @@ func (w *Workload) WorkloadData() (WorkloadData, error) {
 }
 
 // Valid validate reservation
-func (w *Workload) Valid() error {
+func (w *Workload) Valid(getter WorkloadGetter) error {
+	if err := IsValidName(w.Name); err != nil {
+		return errors.Wrap(err, "invalid workload name")
+	}
+
 	if w.User.IsEmpty() {
 		return fmt.Errorf("invalid user id")
 	}
@@ -157,7 +165,7 @@ func (w *Workload) Valid() error {
 		return err
 	}
 
-	return data.Valid()
+	return data.Valid(getter)
 }
 
 //Challenge implementation

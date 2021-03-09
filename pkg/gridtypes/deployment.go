@@ -3,14 +3,19 @@ package gridtypes
 import (
 	"fmt"
 	"io"
+
+	"github.com/pkg/errors"
+)
+
+var (
+	// ErrWorkloadNotFound error
+	ErrWorkloadNotFound = fmt.Errorf("workload not found")
 )
 
 // https://github.com/threefoldtech/vgrid/blob/main/zosreq/req_deployment_root.v
 
-// DeploymentHeader contains all deployment related information
-// it's split in a separate object so it can stored and processed
-// separately unrelated to managed workloads
-type DeploymentHeader struct {
+// Deployment structure
+type Deployment struct {
 	Version              int                  `json:"version"`
 	TwinID               uint32               `json:"twin_id"`
 	DeploymentID         uint32               `json:"deployment_id"`
@@ -18,35 +23,7 @@ type DeploymentHeader struct {
 	Description          string               `json:"description"`
 	Expiration           Timestamp            `json:"expiration"`
 	SignatureRequirement SignatureRequirement `json:"signature_requirement"`
-}
-
-// Challenge compute signature challenge for the header
-func (h *DeploymentHeader) Challenge(w io.Writer) error {
-	if _, err := fmt.Fprintf(w, "%d", h.Version); err != nil {
-		return err
-	}
-
-	if _, err := fmt.Fprintf(w, "%d", h.TwinID); err != nil {
-		return err
-	}
-
-	if _, err := fmt.Fprintf(w, "%d", h.DeploymentID); err != nil {
-		return err
-	}
-
-	if _, err := fmt.Fprintf(w, "%s", h.Metadata); err != nil {
-		return err
-	}
-
-	if _, err := fmt.Fprintf(w, "%s", h.Description); err != nil {
-		return err
-	}
-
-	if _, err := fmt.Fprintf(w, "%d", h.Expiration); err != nil {
-		return err
-	}
-
-	return nil
+	Workloads            []Workload           `json:"workloads"`
 }
 
 // SignatureRequest struct
@@ -101,15 +78,29 @@ func (r *SignatureRequirement) Challenge(w io.Writer) error {
 	return nil
 }
 
-// Deployment is a deployment envelope
-type Deployment struct {
-	DeploymentHeader
-	Workloads []Workload `json:"workloads"`
-}
-
 // Challenge computes challenge for SignatureRequest
 func (d *Deployment) Challenge(w io.Writer) error {
-	if err := d.DeploymentHeader.Challenge(w); err != nil {
+	if _, err := fmt.Fprintf(w, "%d", d.Version); err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprintf(w, "%d", d.TwinID); err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprintf(w, "%d", d.DeploymentID); err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprintf(w, "%s", d.Metadata); err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprintf(w, "%s", d.Description); err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprintf(w, "%d", d.Expiration); err != nil {
 		return err
 	}
 
@@ -120,4 +111,48 @@ func (d *Deployment) Challenge(w io.Writer) error {
 	}
 
 	return nil
+}
+
+// Valid validates deployment structure
+func (d *Deployment) Valid() error {
+	names := make(map[string]struct{})
+	for i := range d.Workloads {
+		wl := &d.Workloads[i]
+		name := wl.Name
+		if _, ok := names[name]; ok {
+			return fmt.Errorf("multiple workloads with the same name '%s'", name)
+		}
+		names[name] = struct{}{}
+
+		if err := wl.Valid(d); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Get a workload by name
+func (d *Deployment) Get(name string) (*Workload, error) {
+	for i := range d.Workloads {
+		wl := &d.Workloads[i]
+		if wl.Name == name {
+			return wl, nil
+		}
+	}
+
+	return nil, errors.Wrapf(ErrWorkloadNotFound, "no workload with name '%s'", name)
+}
+
+// ByType gets all workloads from this reservation by type.
+func (d *Deployment) ByType(typ WorkloadType) []*Workload {
+	var results []*Workload
+	for i := range d.Workloads {
+		wl := &d.Workloads[i]
+		if wl.Type == typ {
+			results = append(results, wl)
+		}
+	}
+
+	return results
 }

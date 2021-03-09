@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/threefoldtech/zos/pkg/gridtypes"
-	"github.com/threefoldtech/zos/pkg/gridtypes/zos"
 )
 
 // Users is used to get user public key
@@ -19,8 +18,8 @@ type Engine interface {
 	// Provision pushes a workload to engine queue. on success
 	// means that workload has been committed to storage (accepts)
 	// and will be processes later
-	Provision(ctx context.Context, wl gridtypes.Workload) error
-	Deprovision(ctx context.Context, id gridtypes.ID, reason string) error
+	Provision(ctx context.Context, wl gridtypes.Deployment) error
+	Deprovision(ctx context.Context, twin, id uint32, reason string) error
 	Storage() Storage
 	Users() Users
 	Admins() Users
@@ -35,21 +34,19 @@ type Provisioner interface {
 // Filter is filtering function for Purge method
 
 var (
-	//ErrWorkloadExists returned if object exist
-	ErrWorkloadExists = fmt.Errorf("exists")
-	//ErrWorkloadNotExists returned if object not exists
-	ErrWorkloadNotExists = fmt.Errorf("not exists")
+	//ErrDeploymentExists returned if object exist
+	ErrDeploymentExists = fmt.Errorf("exists")
+	//ErrDeploymentNotExists returned if object not exists
+	ErrDeploymentNotExists = fmt.Errorf("not exists")
 )
 
 // Storage interface
 type Storage interface {
-	Add(wl gridtypes.Workload) error
-	Set(wl gridtypes.Workload) error
-	Get(id gridtypes.ID) (gridtypes.Workload, error)
-	GetNetwork(id zos.NetID) (gridtypes.Workload, error)
+	Add(wl gridtypes.Deployment) error
+	Set(wl gridtypes.Deployment) error
+	Get(twin, deployment uint32) (gridtypes.Deployment, error)
 
-	ByType(t gridtypes.WorkloadType) ([]gridtypes.ID, error)
-	ByUser(user gridtypes.ID, t gridtypes.WorkloadType) ([]gridtypes.ID, error)
+	ByTwin(twin uint32) ([]uint32, error)
 }
 
 // Janitor interface

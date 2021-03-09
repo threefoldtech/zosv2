@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 
+	"github.com/pkg/errors"
 	"github.com/threefoldtech/zos/pkg/gridtypes"
 )
 
@@ -133,7 +134,16 @@ type Kubernetes struct {
 }
 
 // Valid implementation
-func (k Kubernetes) Valid() error {
+func (k Kubernetes) Valid(getter gridtypes.WorkloadGetter) error {
+	wl, err := getter.Get(k.PublicIP.String())
+	if err != nil {
+		return fmt.Errorf("public ip is not found")
+	}
+
+	if wl.Type != PublicIPType {
+		return errors.Wrapf(err, "workload of name '%s' is not a public ip", k.PublicIP)
+	}
+
 	return nil
 }
 

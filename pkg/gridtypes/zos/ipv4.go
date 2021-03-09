@@ -15,7 +15,7 @@ type PublicIP struct {
 }
 
 // Valid validate public ip input
-func (p PublicIP) Valid() error {
+func (p PublicIP) Valid(getter gridtypes.WorkloadGetter) error {
 	if len(p.IP.IP) == 0 {
 		return fmt.Errorf("empty ip value")
 	}

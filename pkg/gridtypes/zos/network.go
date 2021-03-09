@@ -48,7 +48,7 @@ type Network struct {
 }
 
 // Valid checks if the network resource is valid.
-func (n Network) Valid() error {
+func (n Network) Valid(getter gridtypes.WorkloadGetter) error {
 
 	if n.Name == "" {
 		return fmt.Errorf("network name cannot be empty")

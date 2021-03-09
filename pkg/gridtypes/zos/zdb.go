@@ -39,7 +39,7 @@ type ZDB struct {
 }
 
 //Valid implementation
-func (z ZDB) Valid() error {
+func (z ZDB) Valid(getter gridtypes.WorkloadGetter) error {
 	if z.Size == 0 {
 		return fmt.Errorf("invalid size")
 	}

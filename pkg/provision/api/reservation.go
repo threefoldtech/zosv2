@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -14,53 +15,72 @@ import (
 )
 
 func (a *Workloads) create(request *http.Request) (interface{}, mw.Response) {
-	var workload gridtypes.Workload
-	if err := json.NewDecoder(request.Body).Decode(&workload); err != nil {
+	var deployment gridtypes.Deployment
+	if err := json.NewDecoder(request.Body).Decode(&deployment); err != nil {
 		return nil, mw.BadRequest(err)
 	}
 
-	id, err := a.nextID()
-	if err != nil {
-		return nil, mw.Error(err)
+	if err := deployment.Valid(); err != nil {
+		return nil, mw.BadRequest(err)
 	}
-	workload.ID = gridtypes.ID(id)
+
+	//TODO: signature validation
+
+	// userID := mw.UserID(request.Context())
+	// if workload.User != userID {
+	// 	return nil, mw.UnAuthorized(fmt.Errorf("invalid user id in request body doesn't match http signature"))
+	// }
+	// userPK := mw.UserPublicKey(request.Context())
+
+	// if err := workload.Verify(userPK); err != nil {
+	// 	return nil, mw.UnAuthorized(err)
+	// }
 	ctx, cancel := context.WithTimeout(request.Context(), 3*time.Minute)
 	defer cancel()
 
-	if err := workload.Valid(); err != nil {
-		return nil, mw.BadRequest(err)
-	}
-
-	userID := mw.UserID(request.Context())
-	if workload.User != userID {
-		return nil, mw.UnAuthorized(fmt.Errorf("invalid user id in request body doesn't match http signature"))
-	}
-	userPK := mw.UserPublicKey(request.Context())
-
-	if err := workload.Verify(userPK); err != nil {
-		return nil, mw.UnAuthorized(err)
-	}
-
-	err = a.engine.Provision(ctx, workload)
+	err := a.engine.Provision(ctx, deployment)
 	if err == context.DeadlineExceeded {
 		return nil, mw.Unavailable(ctx.Err())
 	} else if err != nil {
 		return nil, mw.Error(err)
 	}
 
-	return id, mw.Accepted()
+	return nil, mw.Accepted()
+}
+
+func (a *Workloads) parseIDs(request *http.Request) (twin, id uint32, err error) {
+	twinVar := mux.Vars(request)["twin"]
+	if len(twinVar) == 0 {
+		return twin, id, fmt.Errorf("invalid twin id format")
+	}
+	idVar := mux.Vars(request)["id"]
+	if len(idVar) == 0 {
+		return twin, id, fmt.Errorf("invalid id format")
+	}
+
+	twinU, err := strconv.ParseUint(twinVar, 10, 32)
+	if err != nil {
+		return twin, id, err
+	}
+
+	idU, err := strconv.ParseUint(idVar, 10, 32)
+	if err != nil {
+		return twin, id, err
+	}
+
+	return uint32(twinU), uint32(idU), nil
 }
 
 func (a *Workloads) delete(request *http.Request) (interface{}, mw.Response) {
-	id := mux.Vars(request)["id"]
-	if len(id) == 0 {
-		return nil, mw.BadRequest(fmt.Errorf("invalid id format"))
-	}
 
+	twin, id, err := a.parseIDs(request)
+	if err != nil {
+		return nil, mw.BadRequest(err)
+	}
 	ctx, cancel := context.WithTimeout(request.Context(), 3*time.Minute)
 	defer cancel()
 
-	err := a.engine.Deprovision(ctx, gridtypes.ID(id), "requested by user")
+	err = a.engine.Deprovision(ctx, twin, id, "requested by user")
 	if err == context.DeadlineExceeded {
 		return nil, mw.Unavailable(ctx.Err())
 	} else if err != nil {
@@ -71,21 +91,22 @@ func (a *Workloads) delete(request *http.Request) (interface{}, mw.Response) {
 }
 
 func (a *Workloads) get(request *http.Request) (interface{}, mw.Response) {
-	id := mux.Vars(request)["id"]
-	if len(id) == 0 {
-		return nil, mw.BadRequest(fmt.Errorf("invalid id format"))
+
+	twin, id, err := a.parseIDs(request)
+	if err != nil {
+		return nil, mw.BadRequest(err)
 	}
 
-	wl, err := a.engine.Storage().Get(gridtypes.ID(id))
-	if err == provision.ErrWorkloadNotExists {
+	deployment, err := a.engine.Storage().Get(twin, id)
+	if err == provision.ErrDeploymentNotExists {
 		return nil, mw.NotFound(fmt.Errorf("workload not found"))
 	} else if err != nil {
 		return nil, mw.Error(err)
 	}
 
-	if wl.User != mw.UserID(request.Context()) {
-		return nil, mw.UnAuthorized(fmt.Errorf("access denied"))
-	}
+	// if deployment.User != mw.UserID(request.Context()) {
+	// 	return nil, mw.UnAuthorized(fmt.Errorf("access denied"))
+	// }
 
-	return wl, nil
+	return deployment, nil
 }

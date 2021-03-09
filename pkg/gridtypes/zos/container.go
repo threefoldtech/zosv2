@@ -7,6 +7,7 @@ import (
 	"net"
 	"sort"
 
+	"github.com/pkg/errors"
 	"github.com/threefoldtech/zos/pkg/gridtypes"
 )
 
@@ -43,13 +44,13 @@ func (m Member) Challenge(w io.Writer) error {
 
 // Mount defines a container volume mounted inside the container
 type Mount struct {
-	VolumeID   string `json:"volume_id"`
+	Volume     string `json:"volume"`
 	Mountpoint string `json:"mountpoint"`
 }
 
 // Challenge creates signature challenge
 func (m Mount) Challenge(w io.Writer) error {
-	if _, err := fmt.Fprintf(w, "%s", m.VolumeID); err != nil {
+	if _, err := fmt.Fprintf(w, "%s", m.Volume); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "%s", m.Mountpoint); err != nil {
@@ -161,7 +162,20 @@ type Container struct {
 }
 
 // Valid implement the validation interface for container data
-func (c Container) Valid() error {
+func (c Container) Valid(getter gridtypes.WorkloadGetter) error {
+	for _, mnt := range c.Mounts {
+		wl, err := getter.Get(mnt.Volume)
+		if err != nil {
+			return errors.Wrap(err, "mount volume is not found")
+		}
+		if wl.Type != VolumeType {
+			return errors.Wrapf(err, "workload of name '%s' is not a volume", mnt.Volume)
+		}
+	}
+
+	//TODO: also validate the network
+	//NOTE: we leave this out at the moment because network
+	// still can be global per user.
 	return nil
 }
 

@@ -36,7 +36,7 @@ func TestWorkloadValidation(t *testing.T) {
 		Data: json.RawMessage(`{"size": 10, "type": "ssd"}`),
 	}
 
-	err := wl.Valid()
+	err := wl.Valid(nil)
 	require.NoError(err)
 
 	wl = gridtypes.Workload{
@@ -46,7 +46,7 @@ func TestWorkloadValidation(t *testing.T) {
 		Data: json.RawMessage(`{"size": 10, "type": "abc"}`),
 	}
 
-	err = wl.Valid()
+	err = wl.Valid(nil)
 	require.EqualError(err, "invalid device type")
 
 }
