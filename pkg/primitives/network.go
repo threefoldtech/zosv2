@@ -34,7 +34,7 @@ func (p *Primitives) networkProvisionImpl(ctx context.Context, wl *gridtypes.Wor
 
 	_, err = mgr.CreateNR(pkg.Network{
 		Network:           network,
-		NetID:             zos.NetworkID(deployment.TwinID, network.Name),
+		NetID:             zos.NetworkID(deployment.TwinID, wl.Name),
 		WGPrivateKeyPlain: wgKey,
 	})
 
@@ -60,7 +60,7 @@ func (p *Primitives) networkDecommission(ctx context.Context, wl *gridtypes.Work
 	deployment := provision.GetDeployment(ctx)
 	if err := mgr.DeleteNR(pkg.Network{
 		Network: network,
-		NetID:   zos.NetworkID(deployment.TwinID, network.Name),
+		NetID:   zos.NetworkID(deployment.TwinID, wl.Name),
 	}); err != nil {
 		return fmt.Errorf("failed to delete network resource: %w", err)
 	}

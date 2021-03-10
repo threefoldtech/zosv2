@@ -262,6 +262,11 @@ func (e *NativeEngine) Run(ctx context.Context) error {
 
 			//TODO: check for migration (from older version to new)
 			err := e.storage.Add(deployment)
+			// NOTE: hack to force reinstall of same reservation
+			// TODO: remove hack
+			if errors.Is(err, ErrDeploymentExists) {
+				err = e.storage.Set(deployment)
+			}
 			// release the job. the caller will now know that the workload
 			// has been committed to storage (or not)
 			job.ch <- err

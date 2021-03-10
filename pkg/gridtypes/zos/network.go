@@ -33,7 +33,6 @@ func NetworkID(twin uint32, network string) NetID {
 
 // Network is the description of a part of a network local to a specific node
 type Network struct {
-	Name string `json:"name"`
 	// IP range of the network, must be an IPv4 /16
 	NetworkIPRange gridtypes.IPNet `json:"ip_range"`
 
@@ -49,10 +48,6 @@ type Network struct {
 
 // Valid checks if the network resource is valid.
 func (n Network) Valid(getter gridtypes.WorkloadGetter) error {
-
-	if n.Name == "" {
-		return fmt.Errorf("network name cannot be empty")
-	}
 
 	if n.NetworkIPRange.Nil() {
 		return fmt.Errorf("network IP range cannot be empty")
@@ -77,9 +72,6 @@ func (n Network) Valid(getter gridtypes.WorkloadGetter) error {
 
 // Challenge implements WorkloadData
 func (n Network) Challenge(b io.Writer) error {
-	if _, err := fmt.Fprintf(b, "%s", n.Name); err != nil {
-		return err
-	}
 	if _, err := fmt.Fprintf(b, "%s", n.NetworkIPRange.String()); err != nil {
 		return err
 	}

@@ -16,12 +16,6 @@ import (
 	"github.com/threefoldtech/zos/pkg/versioned"
 )
 
-const (
-	pathByID   = "by-id"
-	pathByType = "by-type"
-	pathByUser = "by-user"
-)
-
 var (
 	// deploymentSchemaV1 reservation schema version 1
 	deploymentSchemaV1 = versioned.MustParse("1.0.0")
@@ -43,10 +37,8 @@ func NewFSStore(root string) (*Fs, error) {
 		root: root,
 	}
 
-	for _, p := range []string{pathByID, pathByType, pathByUser} {
-		if err := os.MkdirAll(filepath.Join(root, p), 0770); err != nil {
-			return nil, err
-		}
+	if err := os.MkdirAll(root, 0770); err != nil {
+		return nil, err
 	}
 
 	return store, nil
@@ -179,7 +171,7 @@ func (s *Fs) ByTwin(twin uint32) ([]uint32, error) {
 
 		id, err := strconv.ParseUint(entry.Name(), 10, 32)
 		if err != nil {
-			log.Error().Str("name", entry.Name()).Err(err).Msg("invalid twin id directory")
+			log.Error().Str("name", entry.Name()).Err(err).Msg("invalid deployment id file")
 			continue
 		}
 

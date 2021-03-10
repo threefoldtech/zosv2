@@ -644,7 +644,7 @@ func (n *networker) CreateNR(netNR pkg.Network) (string, error) {
 		var wg *wireguard.Wireguard
 		wg, err = public.NewWireguard(wgName)
 		if err != nil {
-			return "", errors.Wrapf(err, "failed to create wg interface for network resource '%s'", netNR.Name)
+			return "", errors.Wrapf(err, "failed to create wg interface for network resource '%s'", netNR.NetID)
 		}
 		if err = netr.SetWireguard(wg); err != nil {
 			return "", errors.Wrap(err, "failed to setup wireguard interface for network resource")

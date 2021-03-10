@@ -2,7 +2,12 @@ package gridtypes
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
+)
+
+var (
+	nameMatch = regexp.MustCompile("^[a-zA-Z0-9_]+$")
 )
 
 // DeploymentID is a global unique id for a deployment
@@ -14,12 +19,12 @@ func (i DeploymentID) ToPath() string {
 		panic("id is not set")
 	}
 
-	return strings.Replace(string(i), ":", "/", -1)
+	return strings.Replace(string(i), "-", "/", -1)
 }
 
 // Parts split id into building parts
 func (i DeploymentID) Parts() (twin, deployment uint32, err error) {
-	_, err = fmt.Sscanf(string(i), "%d:%d", &twin, &deployment)
+	_, err = fmt.Sscanf(string(i), "%d-%d", &twin, &deployment)
 	return
 }
 
@@ -32,7 +37,7 @@ func (i WorkloadID) ToPath() string {
 		panic("id is not set")
 	}
 
-	return strings.Replace(string(i), ":", "/", -1)
+	return strings.Replace(string(i), "-", "/", -1)
 }
 
 func (i WorkloadID) String() string {
@@ -41,7 +46,7 @@ func (i WorkloadID) String() string {
 
 // Parts split id into building parts
 func (i WorkloadID) Parts() (twin, deployment uint32, name string, err error) {
-	_, err = fmt.Sscanf(string(i), "%d:%d:%s", &twin, &deployment, &name)
+	_, err = fmt.Sscanf(string(i), "%d-%d-%s", &twin, &deployment, &name)
 	return
 }
 
@@ -51,7 +56,7 @@ func IsValidName(n string) error {
 		return fmt.Errorf("name cannot be empty")
 	}
 
-	if strings.ContainsAny(n, "./: ") {
+	if !nameMatch.MatchString(n) {
 		return fmt.Errorf("unsupported character in workload name")
 	}
 
@@ -64,5 +69,5 @@ func NewWorkloadID(twin uint32, deployment uint32, name string) (WorkloadID, err
 		return "", err
 	}
 
-	return WorkloadID(fmt.Sprintf("%d:%d:%s", twin, deployment, name)), nil
+	return WorkloadID(fmt.Sprintf("%d-%d-%s", twin, deployment, name)), nil
 }
