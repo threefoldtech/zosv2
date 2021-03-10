@@ -11,10 +11,10 @@ import (
 )
 
 // DeployFunction simple provision function interface
-type DeployFunction func(ctx context.Context, wl *gridtypes.Workload) (interface{}, error)
+type DeployFunction func(ctx context.Context, wl *gridtypes.WorkloadWithID) (interface{}, error)
 
 // RemoveFunction simple decommission function
-type RemoveFunction func(ctx context.Context, wl *gridtypes.Workload) error
+type RemoveFunction func(ctx context.Context, wl *gridtypes.WorkloadWithID) error
 
 type mapProvisioner struct {
 	provisioners    map[gridtypes.WorkloadType]DeployFunction
@@ -30,7 +30,7 @@ func NewMapProvisioner(p map[gridtypes.WorkloadType]DeployFunction, d map[gridty
 }
 
 // Provision implements provision.Provisioner
-func (p *mapProvisioner) Provision(ctx context.Context, wl *gridtypes.Workload) (*gridtypes.Result, error) {
+func (p *mapProvisioner) Provision(ctx context.Context, wl *gridtypes.WorkloadWithID) (*gridtypes.Result, error) {
 	handler, ok := p.provisioners[wl.Type]
 	if !ok {
 		return nil, fmt.Errorf("unknown reservation type '%s' for reservation id '%s'", wl.Type, wl.ID)
@@ -41,7 +41,7 @@ func (p *mapProvisioner) Provision(ctx context.Context, wl *gridtypes.Workload) 
 }
 
 // Decommission implementation for provision.Provisioner
-func (p *mapProvisioner) Decommission(ctx context.Context, wl *gridtypes.Workload) error {
+func (p *mapProvisioner) Decommission(ctx context.Context, wl *gridtypes.WorkloadWithID) error {
 	handler, ok := p.decommissioners[wl.Type]
 	if !ok {
 		return fmt.Errorf("unknown reservation type '%s' for reservation id '%s'", wl.Type, wl.ID)
@@ -50,7 +50,7 @@ func (p *mapProvisioner) Decommission(ctx context.Context, wl *gridtypes.Workloa
 	return handler(ctx, wl)
 }
 
-func (p *mapProvisioner) buildResult(wl *gridtypes.Workload, data interface{}, err error) (*gridtypes.Result, error) {
+func (p *mapProvisioner) buildResult(wl *gridtypes.WorkloadWithID, data interface{}, err error) (*gridtypes.Result, error) {
 	result := &gridtypes.Result{
 		Created: gridtypes.Timestamp(time.Now().Unix()),
 	}

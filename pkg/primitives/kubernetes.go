@@ -13,6 +13,7 @@ import (
 	"github.com/threefoldtech/zos/pkg/gridtypes"
 	"github.com/threefoldtech/zos/pkg/gridtypes/zos"
 	"github.com/threefoldtech/zos/pkg/network/ifaceutil"
+	"github.com/threefoldtech/zos/pkg/provision"
 	"github.com/threefoldtech/zos/pkg/stubs"
 )
 
@@ -25,7 +26,7 @@ type KubernetesResult = zos.KubernetesResult
 // const k3osFlistURL = "https://hub.grid.tf/tf-official-apps/k3os.flist"
 const k3osFlistURL = "https://hub.grid.tf/lee/k3os.flist"
 
-func (p *Primitives) kubernetesProvision(ctx context.Context, wl *gridtypes.Workload) (interface{}, error) {
+func (p *Primitives) kubernetesProvision(ctx context.Context, wl *gridtypes.WorkloadWithID) (interface{}, error) {
 	return p.kubernetesProvisionImpl(ctx, wl)
 }
 
@@ -40,7 +41,7 @@ func ensureFList(flister pkg.Flister, url string) (string, error) {
 	return flister.NamedMount(name, url, "", pkg.ReadOnlyMountOptions)
 }
 
-func (p *Primitives) kubernetesProvisionImpl(ctx context.Context, wl *gridtypes.Workload) (result KubernetesResult, err error) {
+func (p *Primitives) kubernetesProvisionImpl(ctx context.Context, wl *gridtypes.WorkloadWithID) (result KubernetesResult, err error) {
 	var (
 		storage = stubs.NewVDiskModuleStub(p.zbus)
 		network = stubs.NewNetworkerStub(p.zbus)
@@ -56,7 +57,9 @@ func (p *Primitives) kubernetesProvisionImpl(ctx context.Context, wl *gridtypes.
 		return result, errors.Wrap(err, "failed to decode reservation schema")
 	}
 
-	netID := zos.NetworkID(wl.User.String(), string(config.NetworkID))
+	deployment := provision.GetDeployment(ctx)
+
+	netID := zos.NetworkID(deployment.TwinID, string(config.NetworkID))
 
 	// check if the network tap already exists
 	// if it does, it's most likely that a vm with the same network id and node id already exists
@@ -147,7 +150,7 @@ func (p *Primitives) kubernetesProvisionImpl(ctx context.Context, wl *gridtypes.
 	}
 
 	var netInfo pkg.VMNetworkInfo
-	netInfo, err = p.buildNetworkInfo(ctx, wl.Version, wl.User.String(), iface, pubIface, config)
+	netInfo, err = p.buildNetworkInfo(ctx, wl.Version, deployment.TwinID, iface, pubIface, config)
 	if err != nil {
 		return result, errors.Wrap(err, "could not generate network info")
 	}
@@ -271,7 +274,7 @@ func (p *Primitives) kubernetesRun(ctx context.Context, name string, cpu uint8, 
 	return vm.Run(kubevm)
 }
 
-func (p *Primitives) kubernetesDecomission(ctx context.Context, wl *gridtypes.Workload) error {
+func (p *Primitives) kubernetesDecomission(ctx context.Context, wl *gridtypes.WorkloadWithID) error {
 	var (
 		storage = stubs.NewVDiskModuleStub(p.zbus)
 		network = stubs.NewNetworkerStub(p.zbus)
@@ -290,7 +293,9 @@ func (p *Primitives) kubernetesDecomission(ctx context.Context, wl *gridtypes.Wo
 		}
 	}
 
-	netID := zos.NetworkID(wl.User.String(), string(cfg.NetworkID))
+	deployment := provision.GetDeployment(ctx)
+
+	netID := zos.NetworkID(deployment.TwinID, string(cfg.NetworkID))
 	if err := network.RemoveTap(netID); err != nil {
 		return errors.Wrap(err, "could not clean up tap device")
 	}
@@ -308,10 +313,10 @@ func (p *Primitives) kubernetesDecomission(ctx context.Context, wl *gridtypes.Wo
 	return nil
 }
 
-func (p *Primitives) buildNetworkInfo(ctx context.Context, rversion int, userID string, iface string, pubIface string, cfg Kubernetes) (pkg.VMNetworkInfo, error) {
+func (p *Primitives) buildNetworkInfo(ctx context.Context, rversion int, twin uint32, iface string, pubIface string, cfg Kubernetes) (pkg.VMNetworkInfo, error) {
 	network := stubs.NewNetworkerStub(p.zbus)
 
-	netID := zos.NetworkID(userID, string(cfg.NetworkID))
+	netID := zos.NetworkID(twin, string(cfg.NetworkID))
 	subnet, err := network.GetSubnet(netID)
 	if err != nil {
 		return pkg.VMNetworkInfo{}, errors.Wrapf(err, "could not get network resource subnet")

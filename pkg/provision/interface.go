@@ -27,8 +27,8 @@ type Engine interface {
 
 // Provisioner interface
 type Provisioner interface {
-	Provision(ctx context.Context, wl *gridtypes.Workload) (*gridtypes.Result, error)
-	Decommission(ctx context.Context, wl *gridtypes.Workload) error
+	Provision(ctx context.Context, wl *gridtypes.WorkloadWithID) (*gridtypes.Result, error)
+	Decommission(ctx context.Context, wl *gridtypes.WorkloadWithID) error
 }
 
 // Filter is filtering function for Purge method
@@ -45,7 +45,7 @@ type Storage interface {
 	Add(wl gridtypes.Deployment) error
 	Set(wl gridtypes.Deployment) error
 	Get(twin, deployment uint32) (gridtypes.Deployment, error)
-
+	Twins() ([]uint32, error)
 	ByTwin(twin uint32) ([]uint32, error)
 }
 

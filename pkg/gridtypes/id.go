@@ -35,6 +35,10 @@ func (i WorkloadID) ToPath() string {
 	return strings.Replace(string(i), ":", "/", -1)
 }
 
+func (i WorkloadID) String() string {
+	return string(i)
+}
+
 // Parts split id into building parts
 func (i WorkloadID) Parts() (twin, deployment uint32, name string, err error) {
 	_, err = fmt.Sscanf(string(i), "%d:%d:%s", &twin, &deployment, &name)

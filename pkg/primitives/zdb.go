@@ -37,11 +37,11 @@ type ZDB struct {
 	PasswordPlain string `json:"-"`
 }
 
-func (p *Primitives) zdbProvision(ctx context.Context, wl *gridtypes.Workload) (interface{}, error) {
+func (p *Primitives) zdbProvision(ctx context.Context, wl *gridtypes.WorkloadWithID) (interface{}, error) {
 	return p.zdbProvisionImpl(ctx, wl)
 }
 
-func (p *Primitives) zdbProvisionImpl(ctx context.Context, wl *gridtypes.Workload) (zos.ZDBResult, error) {
+func (p *Primitives) zdbProvisionImpl(ctx context.Context, wl *gridtypes.WorkloadWithID) (zos.ZDBResult, error) {
 	var (
 		storage = stubs.NewZDBAllocaterStub(p.zbus)
 
@@ -351,7 +351,7 @@ func (p *Primitives) createZDBNamespace(containerID pkg.ContainerID, nsID string
 	return nil
 }
 
-func (p *Primitives) zdbDecommission(ctx context.Context, wl *gridtypes.Workload) error {
+func (p *Primitives) zdbDecommission(ctx context.Context, wl *gridtypes.WorkloadWithID) error {
 	var (
 		storage       = stubs.NewZDBAllocaterStub(p.zbus)
 		storageClient = stubs.NewStorageModuleStub(p.zbus)

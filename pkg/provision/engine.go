@@ -132,10 +132,16 @@ func (n *nullKeyGetter) GetKey(id gridtypes.ID) (ed25519.PublicKey, error) {
 }
 
 type engineKey struct{}
+type deploymentKey struct{}
 
 // GetEngine gets engine from context
 func GetEngine(ctx context.Context) Engine {
 	return ctx.Value(engineKey{}).(Engine)
+}
+
+// GetDeployment gets a copy of the current deployment
+func GetDeployment(ctx context.Context) gridtypes.Deployment {
+	return ctx.Value(deploymentKey{}).(gridtypes.Deployment)
 }
 
 // New creates a new engine. Once started, the engine
@@ -225,7 +231,9 @@ func (e *NativeEngine) Run(ctx context.Context) error {
 	// TODO: potential network disconnections if network already exists.
 	// may be network manager need to do nothing if same exact network config
 	// is applied
-	e.boot(ctx)
+	if err := e.boot(ctx); err != nil {
+		log.Error().Err(err).Msg("error while setting up")
+	}
 
 	for {
 		select {
@@ -269,85 +277,95 @@ func (e *NativeEngine) Run(ctx context.Context) error {
 
 // boot will make sure to re-deploy all stored reservation
 // on boot.
-func (e *NativeEngine) boot(ctx context.Context) {
+func (e *NativeEngine) boot(ctx context.Context) error {
 	storage := e.Storage()
-	for _, typ := range e.order {
-		ids, err := storage.ByType(typ)
+	twins, err := storage.Twins()
+	if err != nil {
+		return errors.Wrap(err, "failed to list twins")
+	}
+	for _, twin := range twins {
+		ids, err := storage.ByTwin(twin)
 		if err != nil {
-			log.Error().Err(err).Stringer("type", typ).Msg("failed to get all reservation of type")
+			log.Error().Err(err).Uint32("twin", twin).Msg("failed to list deployments for twin")
 			continue
 		}
+
 		for _, id := range ids {
-			wl, err := storage.Get(id)
+			dl, err := storage.Get(twin, id)
 			if err != nil {
-				log.Error().Err(err).Stringer("id", id).Msg("failed to load workload")
+				log.Error().Err(err).Uint32("twin", twin).Uint32("id", id).Msg("failed to load deployment")
 				continue
 			}
 
-			if wl.Result.State != gridtypes.StateOk && wl.Result.State != gridtypes.StateAccepted {
-				continue
-			}
-			e.install(ctx, wl)
+			e.install(ctx, dl)
 		}
 	}
+
+	return nil
 }
 
 func (e *NativeEngine) uninstall(ctx context.Context, wl gridtypes.Workload, reason string) {
-	log := log.With().Str("id", string(wl.ID)).Str("type", string(wl.Type)).Logger()
+	panic("notimplemented")
 
-	log.Debug().Msg("de-provisioning")
-	if wl.Result.State == gridtypes.StateDeleted ||
-		wl.Result.State == gridtypes.StateError {
-		//nothing to do!
-		return
-	}
+	// log := log.With().Str("id", string(wl.ID)).Str("type", string(wl.Type)).Logger()
 
-	err := e.provisioner.Decommission(ctx, &wl)
-	result := &gridtypes.Result{
-		Error: reason,
-		State: gridtypes.StateDeleted,
-	}
+	// log.Debug().Msg("de-provisioning")
+	// if wl.Result.State == gridtypes.StateDeleted ||
+	// 	wl.Result.State == gridtypes.StateError {
+	// 	//nothing to do!
+	// 	return
+	// }
 
-	if err != nil {
-		log.Error().Err(err).Msg("failed to deploy workload")
-		result.State = gridtypes.StateError
-		result.Error = errors.Wrapf(err, "error while decommission reservation because of: '%s'", result.Error).Error()
-	}
+	// err := e.provisioner.Decommission(ctx, &wl)
+	// result := &gridtypes.Result{
+	// 	Error: reason,
+	// 	State: gridtypes.StateDeleted,
+	// }
 
-	result.Created = gridtypes.Timestamp(time.Now().Unix())
-	wl.Result = *result
+	// if err != nil {
+	// 	log.Error().Err(err).Msg("failed to deploy workload")
+	// 	result.State = gridtypes.StateError
+	// 	result.Error = errors.Wrapf(err, "error while decommission reservation because of: '%s'", result.Error).Error()
+	// }
 
-	if err := e.storage.Set(wl); err != nil {
-		log.Error().Err(err).Msg("failed to set workload result")
-	}
+	// result.Created = gridtypes.Timestamp(time.Now().Unix())
+	// wl.Result = *result
+
+	// if err := e.storage.Set(wl); err != nil {
+	// 	log.Error().Err(err).Msg("failed to set workload result")
+	// }
 }
 
 func (e *NativeEngine) install(ctx context.Context, deployment gridtypes.Deployment) {
 	log := log.With().Uint32("twin", deployment.TwinID).Uint32("id", deployment.DeploymentID).Logger()
+	ctx = context.WithValue(ctx, deploymentKey{}, deployment)
 
-	for i := range deployment.Workloads {
-		wl := &deployment.Workloads[i]
-		log := log.With().Str("type", wl.Type.String()).Str("name", wl.Name).Logger()
-		log.Debug().Msg("provisioning")
+	for _, typ := range e.order {
+		workloads := deployment.ByType(typ)
 
-		result, err := e.provisioner.Provision(ctx, wl)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to deploy workload")
-			result = &gridtypes.Result{
-				Error: err.Error(),
-				State: gridtypes.StateError,
+		for _, wl := range workloads {
+			log := log.With().Str("type", wl.Type.String()).Str("name", wl.Name).Logger()
+			log.Debug().Msg("provisioning")
+
+			result, err := e.provisioner.Provision(ctx, wl)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to deploy workload")
+				result = &gridtypes.Result{
+					Error: err.Error(),
+					State: gridtypes.StateError,
+				}
 			}
-		}
 
-		if result.State == gridtypes.StateError {
-			log.Error().Str("error", result.Error).Msg("failed to deploy workload")
-		}
+			if result.State == gridtypes.StateError {
+				log.Error().Str("error", result.Error).Msg("failed to deploy workload")
+			}
 
-		result.Created = gridtypes.Timestamp(time.Now().Unix())
-		wl.Result = *result
+			result.Created = gridtypes.Timestamp(time.Now().Unix())
+			wl.Result = *result
 
-		if err := e.storage.Set(deployment); err != nil {
-			log.Error().Err(err).Msg("failed to set workload result")
+			if err := e.storage.Set(deployment); err != nil {
+				log.Error().Err(err).Msg("failed to set workload result")
+			}
 		}
 	}
 }

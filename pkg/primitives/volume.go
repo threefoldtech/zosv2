@@ -22,7 +22,7 @@ type Volume = zos.Volume
 // VolumeResult types
 type VolumeResult = zos.VolumeResult
 
-func (p *Primitives) volumeProvisionImpl(ctx context.Context, wl *gridtypes.Workload) (VolumeResult, error) {
+func (p *Primitives) volumeProvisionImpl(ctx context.Context, wl *gridtypes.WorkloadWithID) (VolumeResult, error) {
 	var config Volume
 	if err := json.Unmarshal(wl.Data, &config); err != nil {
 		return VolumeResult{}, err
@@ -46,11 +46,11 @@ func (p *Primitives) volumeProvisionImpl(ctx context.Context, wl *gridtypes.Work
 }
 
 // VolumeProvision is entry point to provision a volume
-func (p *Primitives) volumeProvision(ctx context.Context, wl *gridtypes.Workload) (interface{}, error) {
+func (p *Primitives) volumeProvision(ctx context.Context, wl *gridtypes.WorkloadWithID) (interface{}, error) {
 	return p.volumeProvisionImpl(ctx, wl)
 }
 
-func (p *Primitives) volumeDecommission(ctx context.Context, wl *gridtypes.Workload) error {
+func (p *Primitives) volumeDecommission(ctx context.Context, wl *gridtypes.WorkloadWithID) error {
 	storageClient := stubs.NewStorageModuleStub(p.zbus)
 
 	return storageClient.ReleaseFilesystem(wl.ID.String())

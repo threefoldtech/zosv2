@@ -768,10 +768,6 @@ func (n *networker) networkOf(id string) (nr pkg.Network, err error) {
 		return nr, fmt.Errorf("unknown network object version (%s)", version)
 	}
 
-	if err := net.Valid(); err != nil {
-		return net, errors.Wrapf(err, "failed to validate cached network resource: %s", net.NetID)
-	}
-
 	return net, nil
 }
 

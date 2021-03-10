@@ -13,7 +13,7 @@ import (
 
 // Member struct
 type Member struct {
-	NetworkID string `json:"network_id"`
+	Network string `json:"network"`
 	// IP to give to the container
 	IPs         []net.IP `json:"ips"`
 	PublicIP6   bool     `json:"public_ip6"`
@@ -22,7 +22,7 @@ type Member struct {
 
 // Challenge creates signature challenge
 func (m Member) Challenge(w io.Writer) error {
-	if _, err := fmt.Fprintf(w, "%s", m.NetworkID); err != nil {
+	if _, err := fmt.Fprintf(w, "%s", m.Network); err != nil {
 		return err
 	}
 

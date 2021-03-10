@@ -172,13 +172,13 @@ func (r *Reporter) Run(ctx context.Context) error {
 }
 
 func (r *Reporter) collect(since time.Time) (rep farmer.Report, err error) {
-	users, err := r.storage.Users()
+	users, err := r.storage.Twins()
 	if err != nil {
 		return rep, err
 	}
 
 	rep.Timestamp = since.Unix()
-	rep.Consumption = make(map[gridtypes.ID]farmer.Consumption)
+	rep.Consumption = make(map[uint32]farmer.Consumption)
 
 	for _, user := range users {
 		cap, err := r.user(since, user)
@@ -215,42 +215,47 @@ func (r *Reporter) push(report farmer.Report) error {
 	return r.queue.Enqueue(report)
 }
 
-func (r *Reporter) user(since time.Time, user gridtypes.ID) (farmer.Consumption, error) {
+func (r *Reporter) user(since time.Time, user uint32) (farmer.Consumption, error) {
 	var m many
 	types := gridtypes.Types()
 	consumption := farmer.Consumption{
-		Workloads: make(map[gridtypes.WorkloadType][]gridtypes.ID),
+		Workloads: make(map[gridtypes.WorkloadType][]gridtypes.WorkloadID),
 	}
 
 	for _, typ := range types {
-		consumption.Workloads[typ] = make([]gridtypes.ID, 0)
-		ids, err := r.storage.ByUser(user, typ)
+		consumption.Workloads[typ] = make([]gridtypes.WorkloadID, 0)
+		ids, err := r.storage.ByTwin(user)
 		if err != nil {
 			m = m.append(errors.Wrapf(err, "failed to get reservation for user '%s' type '%s", user, typ))
 			continue
 		}
 
 		for _, id := range ids {
-			wl, err := r.storage.Get(id)
+			dl, err := r.storage.Get(user, id)
 			if err != nil {
 				m = m.append(errors.Wrapf(err, "failed to get reservation '%s'", id))
 				continue
 			}
 
-			if wl.Result.IsNil() {
-				// no results yet
-				continue
-			}
+			for i := range dl.Workloads {
+				wl := &dl.Workloads[i]
 
-			if r.shouldCount(since, &wl.Result) {
-				cap, err := wl.Capacity()
-				if err != nil {
-					m = m.append(errors.Wrapf(err, "failed to get reservation '%s' capacity", id))
+				if wl.Result.IsNil() {
+					// no results yet
 					continue
 				}
 
-				consumption.Workloads[typ] = append(consumption.Workloads[typ], id)
-				consumption.Capacity.Add(&cap)
+				if r.shouldCount(since, &wl.Result) {
+					cap, err := wl.Capacity()
+					if err != nil {
+						m = m.append(errors.Wrapf(err, "failed to get reservation '%s' capacity", id))
+						continue
+					}
+
+					wlID, _ := gridtypes.NewWorkloadID(user, id, wl.Name)
+					consumption.Workloads[typ] = append(consumption.Workloads[typ], wlID)
+					consumption.Capacity.Add(&cap)
+				}
 			}
 
 		}

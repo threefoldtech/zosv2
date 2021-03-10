@@ -82,7 +82,7 @@ func (c *Capacity) Add(o *Capacity) {
 // WorkloadGetter is used to get a workload by name inside
 // the deployment context. Mainly used to validate dependency
 type WorkloadGetter interface {
-	Get(name string) (*Workload, error)
+	Get(name string) (*WorkloadWithID, error)
 }
 
 // WorkloadData interface
@@ -106,10 +106,8 @@ func MustMarshal(data WorkloadData) json.RawMessage {
 type Workload struct {
 	//Version is version of reservation object
 	Version int `json:"version"`
-	//Name is unique workload name per deployment
+	//Name is unique workload name per deployment  (required)
 	Name string `json:"name"`
-	// ID of the reservation (deprecated)
-	ID ID `json:"id"`
 	// Identification of the user requesting the reservation (deprecated)
 	User ID `json:"user_id"`
 	// Type of the reservation (container, zdb, vm, etc...)
@@ -144,6 +142,11 @@ func (w *Workload) WorkloadData() (WorkloadData, error) {
 	}
 
 	return value.(WorkloadData), nil
+}
+
+// IsResult returns true if workload has a valid result of the given state
+func (w *Workload) IsResult(state ResultState) bool {
+	return !w.Result.IsNil() && w.Result.State == state
 }
 
 // Valid validate reservation
